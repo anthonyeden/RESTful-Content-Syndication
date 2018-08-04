@@ -58,6 +58,9 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.0.2 =
+* Add a check to see if the background wp-cron task has dropped off the scheduled tasks list
+
 = 1.0.1 =
 * Fix cron timing.
 
