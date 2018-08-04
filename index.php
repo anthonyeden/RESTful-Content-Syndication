@@ -98,7 +98,7 @@ class RESTfulSyndication {
         add_submenu_page('options-general.php', "RESTful Syndication", "RESTful Syndication", 'manage_options', 'restful-syndication', array($this, 'options_page'));
     }
 
-    public function settings_init(  ) { 
+    public function settings_init() { 
 
         register_setting($this->settings_prefix, $this->settings_prefix . 'settings');
 
@@ -131,6 +131,11 @@ class RESTfulSyndication {
                     "field_key" => $settingId
                 )
             );
+        }
+
+        if(!wp_get_schedule('restful-syndication_cron')) {
+            // The scheduled task has disappeared - add it again
+            $this->activate();
         }
 
     }
