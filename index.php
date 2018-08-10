@@ -44,7 +44,7 @@ class RESTfulSyndication {
             "options" => array(
                 "draft" => 'Draft',
                 "pending" => 'Pending',
-                "published" => 'Published',
+                "publish" => 'Published',
             )
         ),
         "default_author" => array(
@@ -317,6 +317,7 @@ class RESTfulSyndication {
             }
 
             $html = $dom->saveHTML();
+            $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
 
             // Find local matching categories, or create missing ones
             $categories = array();
@@ -330,7 +331,7 @@ class RESTfulSyndication {
                     $categories[] = $term->term_id;
                 } elseif($options['create_categories'] == "true") {
                     // Create the category
-                    $categories[] = wp_insert_category(array('cat_name' => $category_data['name']))['term_id'];
+                    $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
                 }
             }
 
@@ -346,7 +347,9 @@ class RESTfulSyndication {
                     $tags[] = $term->term_id;
                 } elseif($options['create_tags'] == "true") {
                     // Create the category
-                    $tags[] = wp_insert_term($tag_data['name'], 'post_tag');
+                    $tag = wp_insert_term($tag_data['name'], 'post_tag' );
+                    $tags[] = $tag['term_id'];
+
                 }
             }
 
