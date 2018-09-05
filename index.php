@@ -253,7 +253,7 @@ class RESTfulSyndication {
     }
 
     public function syndicate() {
-        // This function does the hard yeards of fetching the content and ingesting it
+        // This function does the hard yards of fetching the content and ingesting it
 
         $posts = $this->rest_fetch('/wp-json/wp/v2/posts/?per_page=10');
 
@@ -314,6 +314,28 @@ class RESTfulSyndication {
                     }
                 }
                 $img->setAttribute('class', implode(" ", $classes));
+            }
+
+            // Turn <audio> tags into [audio] shortcodes
+            $audios = $dom->getElementsByTagName('audio');
+
+            foreach($audios as $audioKey => $audio) {
+                // Get the original audio URL
+                $url = $audio->getElementsByTagName('source')[0]->getAttribute('src');
+
+                // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
+                // See https://core.trac.wordpress.org/ticket/30377
+                // As a workaround, we strip URL parameters
+                if(strpos($url, "?") !== false) {
+                    $url = substr($url, 0, strpos($url, "?"));
+                }
+
+                // Create a new paragraph, and insert the audio shortcode
+                $audio_shortcode = $dom->createElement('p');
+                $audio_shortcode->nodeValue = '[audio src="'.$url.'"]';
+
+                // Replace the original <audio> tag with this new <p>[audio]</p> arrangement
+                $audio->parentNode->replaceChild($audio_shortcode, $audio);
             }
 
             $html = $dom->saveHTML();
