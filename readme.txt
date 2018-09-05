@@ -58,6 +58,9 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.0.4 =
+* Add some handling of <audio> HTML5 tags, to convert them into [audio] shortcodes
+
 = 1.0.3 =
 * Fix issues with Auto-Publishing, and auto Tag/Category creation (thanks to David from Advantage IT)
 
