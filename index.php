@@ -3,7 +3,7 @@
 Plugin Name: RESTful Content Syndication
 Plugin URI: https://mediarealm.com.au/
 Description: Import content from the Wordpress REST API on another Wordpress site
-Version: 1.0.4
+Version: 1.0.5
 Author: Media Realm
 Author URI: https://www.mediarealm.com.au/
 License: GPL2
@@ -321,7 +321,8 @@ class RESTfulSyndication {
 
             foreach($audios as $audioKey => $audio) {
                 // Get the original audio URL
-                $url = $audio->getElementsByTagName('source')[0]->getAttribute('src');
+                $audio_source = $audio->getElementsByTagName('source');
+                $url = $audio_source->item(0)->getAttribute('src');
 
                 // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
                 // See https://core.trac.wordpress.org/ticket/30377
@@ -489,21 +490,32 @@ class RESTfulSyndication {
             $file = $upload_dir['basedir'] . '/' . $filename;
         }
 
-        file_put_contents($file, $image_data);
+        if(file_exists($file)) {
+            // File already exists - get the attachment ID
+            $url_new = content_url(substr($file, strpos($file, "/uploads/")));
+            $attach_id = attachment_url_to_postid($url_new);
+        }
 
-        $wp_filetype = wp_check_filetype($filename, null);
+        if(!isset($attach_id) || $attach_id == 0) {
+            // File doesn't already exist - save it
+            file_put_contents($file, $image_data);
 
-        $attachment = array(
-            'post_mime_type' => $wp_filetype['type'],
-            'post_title' => sanitize_file_name($filename),
-            'post_content' => '',
-            'post_status' => 'inherit'
-        );
+            $wp_filetype = wp_check_filetype($filename, null);
 
-        $attach_id = wp_insert_attachment($attachment, $file, $parent_post_id);
+            $attachment = array(
+                'post_mime_type' => $wp_filetype['type'],
+                'post_title' => sanitize_file_name($filename),
+                'post_content' => '',
+                'post_status' => 'inherit'
+            );
+
+            $attach_id = wp_insert_attachment($attachment, $file, $parent_post_id);
+            
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file);
+            wp_update_attachment_metadata($attach_id, $attach_data);
+        }
+
         
-        $attach_data = wp_generate_attachment_metadata($attach_id, $file);
-        wp_update_attachment_metadata($attach_id, $attach_data);
 
         return $attach_id;
     }
