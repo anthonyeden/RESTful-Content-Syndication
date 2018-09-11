@@ -58,6 +58,10 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.0.5 =
+* Prevent the same image being imported multiple times
+* Fix a pre-PHO 5.6 compatibity issue with the DOM manipulation class
+
 = 1.0.4 =
 * Add some handling of <audio> HTML5 tags, to convert them into [audio] shortcodes
 
