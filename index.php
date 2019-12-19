@@ -338,6 +338,32 @@ class RESTfulSyndication {
                 $audio->parentNode->replaceChild($audio_shortcode, $audio);
             }
 
+            // Find YouTube embeds, and turn them into [embed] shortcodes
+            $youtubes = $dom->getElementsByTagName('div');
+
+            foreach($youtubes as $youtubeKey => $youtube) {
+
+                // Skip non-youtube divs
+                if(!$youtube->hasAttribute('class') || strpos($youtube->getAttribute('class'), 'embed_youtube') === false)
+                    continue;
+
+                // Get the original YouTube embed URL
+                $url = $youtube->getElementsByTagName('iframe')[0]->getAttribute('src');
+
+                // Parse the Video ID from the URL
+                if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
+                    // Create the new URL
+                    $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
+
+                    // Create a new paragraph, and insert the audio shortcode
+                    $embed_shortcode = $dom->createElement('p');
+                    $embed_shortcode->nodeValue = '[embed]'.$url_new.'[/embed]';
+
+                    // Replace the original <div class="embed_youtube"> tag with this new <p>[embed]url[/embed]</p> arrangement
+                    $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
+                }
+            }
+
             $html = $dom->saveHTML();
             $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
 
