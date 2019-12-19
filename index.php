@@ -349,7 +349,8 @@ class RESTfulSyndication {
                     continue;
 
                 // Get the original YouTube embed URL
-                $url = $youtube->getElementsByTagName('iframe')[0]->getAttribute('src');
+                $video_source = $youtube->getElementsByTagName('iframe');
+                $url = $video_source->item(0)->getAttribute('src');
 
                 // Parse the Video ID from the URL
                 if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
