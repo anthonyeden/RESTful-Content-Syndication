@@ -1,8 +1,8 @@
 === Plugin Name ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
-Requires at least: 4.7
-Tested up to: 4.9.7
+Requires at least: 5.0
+Tested up to: 5.3.2
 Requires PHP: 5.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -57,6 +57,9 @@ Commercial support may be available from Media Realm (for a fee). Email us here:
 You may be able to sponsor feature development. Email us here with your feature request and budget: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.0.6 =
+* Handle YouTube embeds, and convert them into the [embed] shortcode
 
 = 1.0.5 =
 * Prevent the same image being imported multiple times
