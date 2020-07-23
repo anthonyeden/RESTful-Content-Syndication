@@ -222,7 +222,7 @@ class RESTfulSyndication {
     private function rest_fetch($url, $full = false) {
         $options = get_option($this->settings_prefix . 'settings');
 
-        if($full === false && (!isset($options['site_url']) || filter_var($options['site_url'], FILTER_VALIDATE_URL) === FALSE)) {
+        if($full === false && (!isset($options['site_url']) || empty($options['site_url']) || filter_var($options['site_url'], FILTER_VALIDATE_URL) === FALSE)) {
             $this->log("Master Site URL not specified, or URL format invalid.");
             return;
         }
@@ -262,6 +262,12 @@ class RESTfulSyndication {
             return;
         }
 
+        $options = get_option($this->settings_prefix . 'settings');
+
+        if($options['create_categories'] == "true") {
+            require_once(ABSPATH . '/wp-admin/includes/taxonomy.php');
+        }
+
         $count = 0;
 
         foreach($posts as $post) {
@@ -272,8 +278,6 @@ class RESTfulSyndication {
                 // Already exists on this site - skip over this post
                 continue;
             }
-
-            $options = get_option($this->settings_prefix . 'settings');
 
             // Do not import posts earlier than a certain date
             if(isset($options['earliest_post_date']) && strtotime($options['earliest_post_date']) !== false && strtotime($post['date']) <= strtotime($options['earliest_post_date'])) {
