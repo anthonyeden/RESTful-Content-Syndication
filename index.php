@@ -73,6 +73,15 @@ class RESTfulSyndication {
             "type" => "select",
             "options" => array()
         ),
+        "remote_push_key" => array(
+            "title" => "Remote Content Push - Secure Key",
+            "type" => "readonly",
+        ),
+        "remote_push_domains" => array(
+            "title" => "Remote Content Push - Allowed Domains (one per line)",
+            "type" => "textarea",
+        ),
+        
     );
 
     public function __construct() {
@@ -80,6 +89,13 @@ class RESTfulSyndication {
         add_action('admin_init', array($this, 'settings_init'));
         add_action('restful-syndication_cron', array($this, 'syndicate'));
         add_filter('cron_schedules', array($this, 'cron_schedules'));
+
+        add_action('rest_api_init', function () {
+            register_rest_route('restful-syndication/v1', '/push/', array(
+                    'methods' => 'POST',
+                    'callback' => array($this, 'push_receive'),
+            ));
+        });
     }
 
     public function activate() {
@@ -154,9 +170,16 @@ class RESTfulSyndication {
             $value = "";
         }
 
+        if($args['field_key'] == 'remote_push_key' && empty($value)) {
+            $value = $this->random_str(32);
+        }
+
         if($field['type'] == "text") {
             // Text fields
             echo '<input type="text" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" />';
+        }  elseif($field['type'] == "textarea") {
+            // Textarea fields
+            echo '<textarea name="restful-syndication_settings['.$args['field_key'].']">'.htmlspecialchars($value, ENT_QUOTES).'</textarea>';
         } elseif($field['type'] == "password") {
             // Password fields
             echo '<input type="password" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" />';
@@ -170,6 +193,9 @@ class RESTfulSyndication {
         } elseif($field['type'] == "checkbox") {
             // Checkbox fields
             echo '<input type="checkbox" name="restful-syndication_settings['.$args['field_key'].']" value="true" '.("true" == $value ? "checked" : "").' />';
+        } elseif($field['type'] == "readonly") {
+            // Readonly field
+            echo '<input type="text" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" readonly />';
         }
     }
 
@@ -272,203 +298,7 @@ class RESTfulSyndication {
 
         foreach($posts as $post) {
             // Loop over every post and create a post entry
-
-            // Have we already ingested this post?
-            if($this->post_guid_exists($post['guid']['rendered']) !== null) {
-                // Already exists on this site - skip over this post
-                continue;
-            }
-
-            // Do not import posts earlier than a certain date
-            if(isset($options['earliest_post_date']) && strtotime($options['earliest_post_date']) !== false && strtotime($post['date']) <= strtotime($options['earliest_post_date'])) {
-                // This post is earlier than the specified start date
-                continue;
-            }
-
-            // Download any embedded images found in the HTML
-            $dom = new domDocument;
-            $dom->loadHTML('<?xml encoding="utf-8" ?>' . $post['content']['rendered'], LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
-
-            $images = $dom->getElementsByTagName('img');
-            $images_to_attach = array();
-
-            foreach($images as $imgKey => $img) {
-                // Download the image and attach it
-                $url = $img->getAttribute('src');
-                $attachment_id = $this->ingest_image($url);
-                
-                // Update the SRC in the HTML
-                $url_new = wp_get_attachment_image_src($attachment_id, $options['image_embed_size']);
-                $img->setAttribute('src', $url_new[0]);
-                $img->setAttribute('width', $url_new[1]);
-                $img->setAttribute('height', $url_new[2]);
-                $img->removeAttribute('srcset');
-                $img->removeAttribute('sizes');
-
-                // Later on, we'll link these attachments to this specific post
-                $images_to_attach[] = $attachment_id;
-
-                // Fix up the classes
-                $classes = explode(" ", $img->getAttribute('class'));
-                foreach($classes as $classKey => $class) {
-                    if(substr($class, 0, 9) == "wp-image-") {
-                        $classes[$classKey] = "wp-image-" . $attachment_id;
-                    } elseif(substr($class, 0, 5) == "size-") {
-                        $classes[$classKey] = "size-" . $options['image_embed_size'];
-                    }
-                }
-                $img->setAttribute('class', implode(" ", $classes));
-            }
-
-            // Turn <audio> tags into [audio] shortcodes
-            $audios = $dom->getElementsByTagName('audio');
-
-            foreach($audios as $audioKey => $audio) {
-                // Get the original audio URL
-                $audio_source = $audio->getElementsByTagName('source');
-                $url = $audio_source->item(0)->getAttribute('src');
-
-                // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
-                // See https://core.trac.wordpress.org/ticket/30377
-                // As a workaround, we strip URL parameters
-                if(strpos($url, "?") !== false) {
-                    $url = substr($url, 0, strpos($url, "?"));
-                }
-
-                // Create a new paragraph, and insert the audio shortcode
-                $audio_shortcode = $dom->createElement('p');
-                $audio_shortcode->nodeValue = '[audio src="'.$url.'"]';
-
-                // Replace the original <audio> tag with this new <p>[audio]</p> arrangement
-                $audio->parentNode->replaceChild($audio_shortcode, $audio);
-            }
-
-            // Find YouTube embeds, and turn them into [embed] shortcodes
-            $youtubes = $dom->getElementsByTagName('div');
-
-            foreach($youtubes as $youtubeKey => $youtube) {
-
-                // Skip non-youtube divs
-                if(!$youtube->hasAttribute('class') || strpos($youtube->getAttribute('class'), 'embed_youtube') === false)
-                    continue;
-
-                // Get the original YouTube embed URL
-                $video_source = $youtube->getElementsByTagName('iframe');
-                $url = $video_source->item(0)->getAttribute('src');
-
-                // Parse the Video ID from the URL
-                if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
-                    // Create the new URL
-                    $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
-
-                    // Create a new paragraph, and insert the audio shortcode
-                    $embed_shortcode = $dom->createElement('p');
-                    $embed_shortcode->nodeValue = '[embed]'.$url_new.'[/embed]';
-
-                    // Replace the original <div class="embed_youtube"> tag with this new <p>[embed]url[/embed]</p> arrangement
-                    $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
-                }
-            }
-
-            $html = $dom->saveHTML();
-            $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
-
-            // Find local matching categories, or create missing ones
-            $categories = array();
-
-            foreach($post['categories'] as $category) {
-                $category_data = $this->rest_fetch('/wp-json/wp/v2/categories/'.$category);
-                $term = get_term_by('name', $category_data['name'], 'category');
-
-                if($term !== false) {
-                    // Category already exists
-                    $categories[] = $term->term_id;
-                } elseif($options['create_categories'] == "true") {
-                    // Create the category
-                    $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
-                }
-            }
-
-            // Find local matching tags
-            $tags = array();
-
-            foreach($post['tags'] as $tag) {
-                $tag_data = $this->rest_fetch('/wp-json/wp/v2/tags/'.$tag);
-                $term = get_term_by('name', $tag_data['name'], 'post_tag');
-
-                if($term !== false) {
-                    // Tag already exists
-                    $tags[] = $term->term_id;
-                } elseif($options['create_tags'] == "true") {
-                    // Create the category
-                    $tag = wp_insert_term($tag_data['name'], 'post_tag' );
-                    $tags[] = $tag['term_id'];
-
-                }
-            }
-
-            if(!isset($post['yoast_meta']['yoast_wpseo_metadesc'])) {
-                $post['yoast_meta']['yoast_wpseo_metadesc'] = "";
-            }
-
-            if(!isset($post['yoast_meta']['yoast_wpseo_canonical'])) {
-                $post['yoast_meta']['yoast_wpseo_canonical'] = $post['link'];
-            }
-
-            if($options['yoast_noindex'] == "true") {
-                $post['yoast_meta']['yoast_wpseo_noindex'] = "1";
-            } else {
-                $post['yoast_meta']['yoast_wpseo_noindex'] = "0";
-            }
-
-            // Insert a new post
-            $post_id = wp_insert_post(array(
-                'ID' => 0,
-                'post_author' => $options['default_author'],
-                'post_date' => $post['date'],
-                'post_date_gmt' => $post['date_gmt'],
-                'post_content' => $html,
-                'post_title' => $post['title']['rendered'],
-                'post_excerpt' => strip_tags($post['excerpt']['rendered']),
-                'post_status' => $options['default_status'],
-                'post_type' => 'post',
-                'guid' => $post['guid']['rendered'],
-                'post_category' => $categories,
-                'tags_input' => $tags,
-                'meta_input' => array(
-                    '_'.$this->settings_prefix.'source_guid' => $post['guid']['rendered'],
-                    '_yoast_wpseo_metadesc' => $post['yoast_meta']['yoast_wpseo_metadesc'],
-                    '_yoast_wpseo_canonical' => $post['yoast_meta']['yoast_wpseo_canonical'],
-                    '_yoast_wpseo_meta-robots-noindex' => $post['yoast_meta']['yoast_wpseo_noindex'],
-                )
-            ), false);
-
-            if($post_id > 0 && isset($post['_links']['wp:featuredmedia'][0]['href'])) {
-                // Download and attach featured image
-
-                $api_url = $post['_links']['wp:featuredmedia'][0]['href'];
-                $attachment = $this->rest_fetch($api_url, true);
-
-                if(isset($attachment['media_details']['sizes']['full']['source_url'])) {
-                    $featured_attachment_id = $this->ingest_image($attachment['media_details']['sizes']['full']['source_url'], $post_id);
-                    set_post_thumbnail($post_id, $featured_attachment_id);
-                } else {
-                    $this->log("Attachment full image not found: " . $api_url);
-                }
-            }
-
-            if($post_id > 0) {
-                foreach($images_to_attach as $attachment_id) {
-                    // Attach images to this new post
-                    wp_update_post(
-                        array(
-                            'ID' => $attachment_id, 
-                            'post_parent' => $post_id
-                        )
-                    );
-                }
-            }
-
+            $this->syndicate_one($post);
             $count++;
 
         }
@@ -480,6 +310,280 @@ class RESTfulSyndication {
         }
 
         update_option($this->settings_prefix . 'last_attempt', time());
+    }
+
+    private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false) {
+        // Process one post
+
+        $options = get_option($this->settings_prefix . 'settings');
+
+        // Have we already ingested this post?
+        if($this->post_guid_exists($post['guid']['rendered']) !== null) {
+            // Already exists on this site - skip over this post
+            return;
+        }
+
+        // Do not import posts earlier than a certain date
+        if(!$allow_old) {
+            if(isset($options['earliest_post_date']) && strtotime($options['earliest_post_date']) !== false && strtotime($post['date']) <= strtotime($options['earliest_post_date'])) {
+                // This post is earlier than the specified start date
+                return;
+            }
+        }
+
+        // Download any embedded images found in the HTML
+        $dom = new domDocument;
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $post['content']['rendered'], LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+
+        $images = $dom->getElementsByTagName('img');
+        $images_to_attach = array();
+
+        foreach($images as $imgKey => $img) {
+            // Download the image and attach it
+            $url = $img->getAttribute('src');
+            $attachment_id = $this->ingest_image($url);
+            
+            // Update the SRC in the HTML
+            $url_new = wp_get_attachment_image_src($attachment_id, $options['image_embed_size']);
+            $img->setAttribute('src', $url_new[0]);
+            $img->setAttribute('width', $url_new[1]);
+            $img->setAttribute('height', $url_new[2]);
+            $img->removeAttribute('srcset');
+            $img->removeAttribute('sizes');
+
+            // Later on, we'll link these attachments to this specific post
+            $images_to_attach[] = $attachment_id;
+
+            // Fix up the classes
+            $classes = explode(" ", $img->getAttribute('class'));
+            foreach($classes as $classKey => $class) {
+                if(substr($class, 0, 9) == "wp-image-") {
+                    $classes[$classKey] = "wp-image-" . $attachment_id;
+                } elseif(substr($class, 0, 5) == "size-") {
+                    $classes[$classKey] = "size-" . $options['image_embed_size'];
+                }
+            }
+            $img->setAttribute('class', implode(" ", $classes));
+        }
+
+        // Turn <audio> tags into [audio] shortcodes
+        $audios = $dom->getElementsByTagName('audio');
+
+        foreach($audios as $audioKey => $audio) {
+            // Get the original audio URL
+            $audio_source = $audio->getElementsByTagName('source');
+            $url = $audio_source->item(0)->getAttribute('src');
+
+            // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
+            // See https://core.trac.wordpress.org/ticket/30377
+            // As a workaround, we strip URL parameters
+            if(strpos($url, "?") !== false) {
+                $url = substr($url, 0, strpos($url, "?"));
+            }
+
+            // Create a new paragraph, and insert the audio shortcode
+            $audio_shortcode = $dom->createElement('p');
+            $audio_shortcode->nodeValue = '[audio src="'.$url.'"]';
+
+            // Replace the original <audio> tag with this new <p>[audio]</p> arrangement
+            $audio->parentNode->replaceChild($audio_shortcode, $audio);
+        }
+
+        // Find YouTube embeds, and turn them into [embed] shortcodes
+        $youtubes = $dom->getElementsByTagName('div');
+
+        foreach($youtubes as $youtubeKey => $youtube) {
+
+            // Skip non-youtube divs
+            if(!$youtube->hasAttribute('class') || strpos($youtube->getAttribute('class'), 'embed_youtube') === false)
+                continue;
+
+            // Get the original YouTube embed URL
+            $video_source = $youtube->getElementsByTagName('iframe');
+            $url = $video_source->item(0)->getAttribute('src');
+
+            // Parse the Video ID from the URL
+            if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
+                // Create the new URL
+                $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
+
+                // Create a new paragraph, and insert the audio shortcode
+                $embed_shortcode = $dom->createElement('p');
+                $embed_shortcode->nodeValue = '[embed]'.$url_new.'[/embed]';
+
+                // Replace the original <div class="embed_youtube"> tag with this new <p>[embed]url[/embed]</p> arrangement
+                $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
+            }
+        }
+
+        $html = $dom->saveHTML();
+        $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
+
+        // Find local matching categories, or create missing ones
+        $categories = array();
+
+        foreach($post['categories'] as $category) {
+            $category_data = $this->rest_fetch('/wp-json/wp/v2/categories/'.$category);
+            $term = get_term_by('name', $category_data['name'], 'category');
+
+            if($term !== false) {
+                // Category already exists
+                $categories[] = $term->term_id;
+            } elseif($options['create_categories'] == "true") {
+                // Create the category
+                $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+            }
+        }
+
+        // Find local matching tags
+        $tags = array();
+
+        foreach($post['tags'] as $tag) {
+            $tag_data = $this->rest_fetch('/wp-json/wp/v2/tags/'.$tag);
+            $term = get_term_by('name', $tag_data['name'], 'post_tag');
+
+            if($term !== false) {
+                // Tag already exists
+                $tags[] = $term->term_id;
+            } elseif($options['create_tags'] == "true") {
+                // Create the category
+                $tag = wp_insert_term($tag_data['name'], 'post_tag' );
+                $tags[] = $tag['term_id'];
+
+            }
+        }
+
+        // Try and match to a local author
+        $author = $options['default_author'];
+        if($match_author === true && is_numeric($post['author'])) {
+            $author_data = $this->rest_fetch('/wp-json/wp/v2/users/'.$post['author']);
+
+            if(isset($author_data['name']) && !empty($author_data['name'])) {
+                $user_lookup = $this->find_user($author_data['name']);
+
+                if($user_lookup != false) {
+                    $author = $user_lookup;
+                }
+            }
+        }
+
+        if(!isset($post['yoast_meta']['yoast_wpseo_metadesc'])) {
+            $post['yoast_meta']['yoast_wpseo_metadesc'] = "";
+        }
+
+        if(!isset($post['yoast_meta']['yoast_wpseo_canonical'])) {
+            $post['yoast_meta']['yoast_wpseo_canonical'] = $post['link'];
+        }
+
+        if($options['yoast_noindex'] == "true") {
+            $post['yoast_meta']['yoast_wpseo_noindex'] = "1";
+        } else {
+            $post['yoast_meta']['yoast_wpseo_noindex'] = "0";
+        }
+
+        if($force_publish == true) {
+            $post_status = 'publish';
+        } else {
+            $post_status = $options['default_status'];
+        }
+
+        // Insert a new post
+        $post_id = wp_insert_post(array(
+            'ID' => 0,
+            'post_author' => $author,
+            'post_date' => $post['date'],
+            'post_date_gmt' => $post['date_gmt'],
+            'post_content' => $html,
+            'post_title' => $post['title']['rendered'],
+            'post_excerpt' => strip_tags($post['excerpt']['rendered']),
+            'post_status' => $post_status,
+            'post_type' => 'post',
+            'guid' => $post['guid']['rendered'],
+            'post_category' => $categories,
+            'tags_input' => $tags,
+            'meta_input' => array(
+                '_'.$this->settings_prefix.'source_guid' => $post['guid']['rendered'],
+                '_yoast_wpseo_metadesc' => $post['yoast_meta']['yoast_wpseo_metadesc'],
+                '_yoast_wpseo_canonical' => $post['yoast_meta']['yoast_wpseo_canonical'],
+                '_yoast_wpseo_meta-robots-noindex' => $post['yoast_meta']['yoast_wpseo_noindex'],
+            )
+        ), false);
+
+        if($post_id > 0 && isset($post['_links']['wp:featuredmedia'][0]['href'])) {
+            // Download and attach featured image
+
+            $api_url = $post['_links']['wp:featuredmedia'][0]['href'];
+            $attachment = $this->rest_fetch($api_url, true);
+
+            if(isset($attachment['media_details']['sizes']['full']['source_url'])) {
+                $featured_attachment_id = $this->ingest_image($attachment['media_details']['sizes']['full']['source_url'], $post_id);
+                set_post_thumbnail($post_id, $featured_attachment_id);
+            } else {
+                $this->log("Attachment full image not found: " . $api_url);
+            }
+        }
+
+        if($post_id > 0) {
+            foreach($images_to_attach as $attachment_id) {
+                // Attach images to this new post
+                wp_update_post(
+                    array(
+                        'ID' => $attachment_id, 
+                        'post_parent' => $post_id
+                    )
+                );
+            }
+        }
+
+        return $post_id;
+    }
+
+    public function push_receive() {
+        // Receive a push request from another server
+        global $wp;
+
+        // Check credentials
+        if(!isset($_POST['restful_push_key'])) {
+            return array('error' => 'Authentication failure');
+        }
+
+        $options = get_option($this->settings_prefix . 'settings');
+
+        if($_POST['restful_push_key'] !== $options['remote_push_key'] || strlen($options['remote_push_key']) <= 31) {
+            return array('error' => 'Authentication failure');
+        }
+
+        // Check list of allowed domains
+        if(!isset($_POST['restful_push_url'])) {
+            return array('error' => 'URL not provided');
+        }
+
+        if(empty($options['remote_push_domains'])) {
+            return array('error' => 'Allowed domains not configured');
+        }
+
+        $domains = explode("\n", $options['remote_push_domains']);
+        $supplied_url_info = parse_url($_POST['restful_push_url']);
+        $supplied_domain = $supplied_url_info['host'];
+
+        if(!in_array($supplied_domain, $domains)) {
+            return array('error' => 'Could not validate domain');
+        }
+
+        // Request data
+        $payload = $this->rest_fetch($_POST['restful_push_url'], true);
+
+        // Should this be auto-published?
+        if(isset($_POST['restful_publish']) && $_POST['restful_publish'] == 'true') {
+            $force_publish = true;
+        } else {
+            $force_publish = false;
+        }
+
+        // Process data
+        $post_id = $this->syndicate_one($payload, true, $force_publish, true);
+
+        return array("post_id" => $post_id);
     }
 
     private function post_guid_exists($guid) {
@@ -551,6 +655,16 @@ class RESTfulSyndication {
         return $attach_id;
     }
 
+    private function find_user($name) {
+        // Lookup a user by their display name
+        global $wpdb;
+
+        if(!$user = $wpdb->get_row($wpdb->prepare("SELECT `ID` FROM $wpdb->users WHERE `display_name` = %s", $name)))
+            return false;
+
+        return $user->ID;
+    }
+
     public function cron_schedules($schedules) {
         $schedules['fifteen_minutes'] = array(
             'interval' => 900,
@@ -558,6 +672,16 @@ class RESTfulSyndication {
         );
      
         return $schedules;
+    }
+
+    private function random_str($length, $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+`~') {
+        // From https://stackoverflow.com/a/31284266/2888733
+        $str = '';
+        $max = mb_strlen($keyspace, '8bit') - 1;
+        for ($i = 0; $i < $length; ++$i) {
+            $str .= $keyspace[random_int(0, $max)];
+        }
+        return $str;
     }
 
 }
