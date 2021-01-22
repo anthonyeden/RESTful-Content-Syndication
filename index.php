@@ -600,7 +600,6 @@ class RESTfulSyndication {
                 WHERE meta_key = %s
                 AND meta_value = %s
                 AND $wpdb->postmeta.post_id = $wpdb->posts.ID
-                AND $wpdb->posts.post_status != 'trash'
                 ",
                 '_'.$this->settings_prefix.'source_guid',
                 $guid
