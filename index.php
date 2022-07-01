@@ -424,15 +424,19 @@ class RESTfulSyndication {
 
         foreach($post['categories'] as $category) {
             $category_data = $this->rest_fetch('/wp-json/wp/v2/categories/'.$category);
-            $term = get_term_by('name', $category_data['name'], 'category');
 
-            if($term !== false) {
-                // Category already exists
-                $categories[] = $term->term_id;
-            } elseif($options['create_categories'] == "true") {
-                // Create the category
-                $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+            if(isset($category_data['name']) && !empty($category_data['name'])) {
+                $term = get_term_by('name', $category_data['name'], 'category');
+
+                if($term !== false) {
+                    // Category already exists
+                    $categories[] = $term->term_id;
+                } elseif(isset($options['create_categories']) && $options['create_categories'] == "true") {
+                    // Create the category
+                    $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+                }
             }
+
         }
 
         // Find local matching tags
@@ -440,17 +444,23 @@ class RESTfulSyndication {
 
         foreach($post['tags'] as $tag) {
             $tag_data = $this->rest_fetch('/wp-json/wp/v2/tags/'.$tag);
-            $term = get_term_by('name', $tag_data['name'], 'post_tag');
 
-            if($term !== false) {
-                // Tag already exists
-                $tags[] = $term->term_id;
-            } elseif($options['create_tags'] == "true") {
-                // Create the category
-                $tag = wp_insert_term($tag_data['name'], 'post_tag' );
-                $tags[] = $tag['term_id'];
+            if(isset($tag_data['name']) && !empty($tag_data['name'])) {
+                $term = get_term_by('name', $tag_data['name'], 'post_tag');
 
+                if($term !== false) {
+                    // Tag already exists
+                    $tags[] = $term->term_id;
+                } elseif($options['create_tags'] == "true") {
+                    // Create the category
+                    $tag = wp_insert_term($tag_data['name'], 'post_tag');
+
+                    if(is_array($tag)) {
+                        $tags[] = $tag['term_id'];
+                    }
+                }
             }
+
         }
 
         // Try and match to a local author
