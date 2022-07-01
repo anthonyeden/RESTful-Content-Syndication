@@ -616,6 +616,11 @@ class RESTfulSyndication {
         $image_data = file_get_contents($url);
         $filename = basename($url);
 
+        if(empty($image_data)) {
+            $this->log("Failed to download image " . $url);
+            return null;
+        }
+
         $upload_dir = wp_upload_dir();
 
         if(wp_mkdir_p($upload_dir['path'])) {
@@ -634,6 +639,11 @@ class RESTfulSyndication {
             // File doesn't already exist - save it
             file_put_contents($file, $image_data);
 
+            if(!file_exists($file)) {
+                $this->log("Failed to save image " . $file);
+                return null;
+            }
+
             $wp_filetype = wp_check_filetype($filename, null);
 
             $attachment = array(
@@ -647,6 +657,12 @@ class RESTfulSyndication {
             
             $attach_data = wp_generate_attachment_metadata($attach_id, $file);
             wp_update_attachment_metadata($attach_id, $attach_data);
+
+            if(!file_exists($file)) {
+                $this->log("Image doesn't exist after processing " . $file);
+                return null;
+            }
+
         }
 
         
