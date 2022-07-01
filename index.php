@@ -573,6 +573,10 @@ class RESTfulSyndication {
         // Request data
         $payload = $this->rest_fetch($_POST['restful_push_url'], true);
 
+        if(empty($payload) || $payload == null) {
+            return array("error_msg" => 'Failed to fetch post data from API');
+        }
+
         // Should this be auto-published?
         if(isset($_POST['restful_publish']) && $_POST['restful_publish'] == 'true') {
             $force_publish = true;
