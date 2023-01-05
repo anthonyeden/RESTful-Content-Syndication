@@ -528,6 +528,9 @@ class RESTfulSyndication {
             if(isset($attachment['media_details']['sizes']['full']['source_url'])) {
                 $featured_attachment_id = $this->ingest_image($attachment['media_details']['sizes']['full']['source_url'], $post_id);
                 set_post_thumbnail($post_id, $featured_attachment_id);
+            } elseif(isset($attachment['source_url'])) {
+                $featured_attachment_id = $this->ingest_image($attachment['source_url'], $post_id);
+                set_post_thumbnail($post_id, $featured_attachment_id);
             } else {
                 $this->log("Attachment full image not found: " . $api_url);
             }
