@@ -1,8 +1,8 @@
 === Plugin Name ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
-Requires at least: 5.0
-Tested up to: 6.0.0
+Requires at least: 5.9.5
+Tested up to: 6.1.1
 Requires PHP: 7.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -57,6 +57,11 @@ Commercial support may be available from Media Realm (for a fee). Email us here:
 You may be able to sponsor feature development. Email us here with your feature request and budget: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.1.1 =
+
+* Featured Image: Fallback to alternative URL if full URL isn't found
+* Syndication Push: Fix issue matching domains on incoming content
 
 = 1.1.0 =
 
