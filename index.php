@@ -576,6 +576,10 @@ class RESTfulSyndication {
         $supplied_url_info = parse_url($_POST['restful_push_url']);
         $supplied_domain = $supplied_url_info['host'];
 
+        foreach($domains as $key => $domain) {
+            $domains[$key] = trim($domain);
+        }
+
         if(!in_array($supplied_domain, $domains)) {
             return array('error' => 'Could not validate domain');
         }
