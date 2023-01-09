@@ -436,7 +436,11 @@ class RESTfulSyndication {
                                 $categories[] = $term->term_id;
                             } elseif(isset($options['create_categories']) && $options['create_categories'] == "true") {
                                 // Create the category
-                                $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+                                $cat_new = wp_insert_term($category_data['name'], 'category');
+
+                                if(is_array($cat_new)) {
+                                    $categories[] = $cat_new['term_id'];
+                                }
                             }
                         }
 
