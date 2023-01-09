@@ -58,6 +58,10 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.2.1 =
+
+* Fix a bug where category creation wasn't working during content Push
+
 = 1.2.0 = 
 
 * Change the method used to pull categories, tags, and authors
