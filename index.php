@@ -422,18 +422,25 @@ class RESTfulSyndication {
         // Find local matching categories, or create missing ones
         $categories = array();
 
-        foreach($post['categories'] as $category) {
-            $category_data = $this->rest_fetch('/wp-json/wp/v2/categories/'.$category);
+        if(isset($post['_links']['wp:term'])) {
+            foreach($post['_links']['wp:term'] as $term_link) {
+                if($term_link['taxonomy'] == 'category') {
+                    $category_data_all = $this->rest_fetch($term_link['href'], true);
 
-            if(isset($category_data['name']) && !empty($category_data['name'])) {
-                $term = get_term_by('name', $category_data['name'], 'category');
+                    foreach($category_data_all as $category_data) {
+                        if(isset($category_data['name']) && !empty($category_data['name'])) {
+                            $term = get_term_by('name', $category_data['name'], 'category');
+            
+                            if($term !== false) {
+                                // Category already exists
+                                $categories[] = $term->term_id;
+                            } elseif(isset($options['create_categories']) && $options['create_categories'] == "true") {
+                                // Create the category
+                                $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+                            }
+                        }
 
-                if($term !== false) {
-                    // Category already exists
-                    $categories[] = $term->term_id;
-                } elseif(isset($options['create_categories']) && $options['create_categories'] == "true") {
-                    // Create the category
-                    $categories[] = wp_insert_category(array('cat_name' => $category_data['name']));
+                    }
                 }
             }
 
@@ -442,31 +449,37 @@ class RESTfulSyndication {
         // Find local matching tags
         $tags = array();
 
-        foreach($post['tags'] as $tag) {
-            $tag_data = $this->rest_fetch('/wp-json/wp/v2/tags/'.$tag);
+        if(isset($post['_links']['wp:term'])) {
+            foreach($post['_links']['wp:term'] as $term_link) {
+                if($term_link['taxonomy'] == 'post_tag') {
+                    $tag_data_all = $this->rest_fetch($term_link['href'], true);
 
-            if(isset($tag_data['name']) && !empty($tag_data['name'])) {
-                $term = get_term_by('name', $tag_data['name'], 'post_tag');
-
-                if($term !== false) {
-                    // Tag already exists
-                    $tags[] = $term->term_id;
-                } elseif($options['create_tags'] == "true") {
-                    // Create the category
-                    $tag = wp_insert_term($tag_data['name'], 'post_tag');
-
-                    if(is_array($tag)) {
-                        $tags[] = $tag['term_id'];
+                    foreach($tag_data_all as $tag_data) {
+                        if(isset($tag_data['name']) && !empty($tag_data['name'])) {
+                            $term = get_term_by('name', $tag_data['name'], 'post_tag');
+            
+                            if($term !== false) {
+                                // Tag already exists
+                                $tags[] = $term->term_id;
+                            } elseif($options['create_tags'] == "true") {
+                                // Create the category
+                                $tag = wp_insert_term($tag_data['name'], 'post_tag');
+            
+                                if(is_array($tag)) {
+                                    $tags[] = $tag['term_id'];
+                                }
+                            }
+                        }
                     }
                 }
             }
-
         }
 
         // Try and match to a local author
         $author = $options['default_author'];
-        if($match_author === true && is_numeric($post['author'])) {
-            $author_data = $this->rest_fetch('/wp-json/wp/v2/users/'.$post['author']);
+        if($match_author === true && is_numeric($post['author']) && isset($post['_links']['author'][0])) {
+
+            $author_data = $this->rest_fetch($post['_links']['author'][0]['href'], true);
 
             if(isset($author_data['name']) && !empty($author_data['name'])) {
                 $user_lookup = $this->find_user($author_data['name']);
