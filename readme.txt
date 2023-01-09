@@ -58,6 +58,10 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.2.0 = 
+
+* Change the method used to pull categories, tags, and authors
+
 = 1.1.1 =
 
 * Featured Image: Fallback to alternative URL if full URL isn't found
