@@ -335,6 +335,24 @@ class RESTfulSyndication {
             }
         }
 
+        // Check for empty fields and fail early
+        if(!isset($post['guid']['rendered']) || empty($post['guid']['rendered'])) {
+            $this->log("Post GUID is empty - skipping.");
+            return;
+        }
+
+        $post['title']['rendered'] = trim($post['title']['rendered']);
+
+        if(empty($post['title']['rendered'])) {
+            $this->log("Post title is empty - skipping. " . $post['guid']['rendered']);
+            return;
+        }
+
+        if(!isset($post['content']['rendered']) || empty($post['content']['rendered'])) {
+            $this->log("Post body is empty - skipping. " . $post['guid']['rendered']);
+            return;
+        }
+
         // Download any embedded images found in the HTML
         $dom = new domDocument;
         $dom->loadHTML('<?xml encoding="utf-8" ?>' . $post['content']['rendered'], LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
