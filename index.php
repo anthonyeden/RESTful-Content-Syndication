@@ -84,6 +84,8 @@ class RESTfulSyndication {
         
     );
 
+    public $errors_logged = array();
+
     public function __construct() {
         add_action('admin_menu', array($this, 'admin_menu'));
         add_action('admin_init', array($this, 'settings_init'));
@@ -105,8 +107,10 @@ class RESTfulSyndication {
     private function log($log)  {
         if(is_array($log) || is_object($log)) {
            error_log($this->errors_prefix . print_r($log, true));
+           $errors_logged[] = print_r($log, true);
         } else {
            error_log($this->errors_prefix . $log);
+           $errors_logged[] = $log;
         }
      }
 
@@ -269,7 +273,7 @@ class RESTfulSyndication {
         );
 
         if(is_wp_error($response)) {
-            $this->log("HTTP request failed when calling WP REST API.");
+            $this->log("HTTP request failed when calling WP REST API. " . $response->get_error_message());
             return;
         }
 
@@ -608,7 +612,7 @@ class RESTfulSyndication {
         $payload = $this->rest_fetch($_POST['restful_push_url'], true);
 
         if(empty($payload) || $payload == null) {
-            return array("error_msg" => 'Failed to fetch post data from API');
+            return array("error_msg" => 'Failed to fetch post data from API', "errors" => $errors_logged);
         }
 
         // Should this be auto-published?
