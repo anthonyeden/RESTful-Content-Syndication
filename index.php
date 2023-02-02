@@ -92,6 +92,8 @@ class RESTfulSyndication {
         add_action('restful-syndication_cron', array($this, 'syndicate'));
         add_filter('cron_schedules', array($this, 'cron_schedules'));
 
+        add_shortcode('restful_syndication_iframe', array($this, 'sc_iframe'));
+
         add_action('rest_api_init', function () {
             register_rest_route('restful-syndication/v1', '/push/', array(
                     'methods' => 'POST',
@@ -404,8 +406,9 @@ class RESTfulSyndication {
             }
 
             // Create a new paragraph, and insert the audio shortcode
-            $audio_shortcode = $dom->createElement('p');
-            $audio_shortcode->nodeValue = '[audio src="'.$url.'"]';
+            $audio_shortcode = $dom->createElement('div');
+            $audio_shortcode->setAttribute('class', 'audio-filter');
+            $audio_shortcode->nodeValue = '[audio src="'.esc_url($url).'"]';
 
             // Replace the original <audio> tag with this new <p>[audio]</p> arrangement
             $audio->parentNode->replaceChild($audio_shortcode, $audio);
@@ -417,7 +420,7 @@ class RESTfulSyndication {
         foreach($youtubes as $youtubeKey => $youtube) {
 
             // Skip non-youtube divs
-            if(!$youtube->hasAttribute('class') || strpos($youtube->getAttribute('class'), 'embed_youtube') === false)
+            if(!$youtube->hasAttribute('class') || (strpos($youtube->getAttribute('class'), 'embed_youtube') === false && strpos($youtube->getAttribute('class'), 'video-filter') === false))
                 continue;
 
             // Get the original YouTube embed URL
@@ -430,12 +433,46 @@ class RESTfulSyndication {
                 $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
 
                 // Create a new paragraph, and insert the audio shortcode
-                $embed_shortcode = $dom->createElement('p');
-                $embed_shortcode->nodeValue = '[embed]'.$url_new.'[/embed]';
+                $embed_shortcode = $dom->createElement('div');
+                $embed_shortcode->setAttribute('class', 'video-filter');
+                $embed_shortcode->nodeValue = '[embed]'.esc_url($url_new).'[/embed]';
 
-                // Replace the original <div class="embed_youtube"> tag with this new <p>[embed]url[/embed]</p> arrangement
+                // Replace the original <div class="embed_youtube"> tag with this new <div>[embed]url[/embed]</div> arrangement
                 $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
             }
+        }
+
+        // Find iFrames, and turn them into [restful_syndication_iframe] shortcodes
+        $iframes = $dom->getElementsByTagName('iframe');
+
+        foreach($iframes as $iframeKey => $iframe) {
+
+            // Skip iframes without src field
+            if(!$iframe->hasAttribute('src')) {
+                continue;
+            }
+
+            // Get the original iFrame src URL
+            $url = $iframe->getAttribute('src');
+
+            // Skip empty URLs
+            if(empty($url)) {
+                continue;
+            }
+
+            // Get width and height
+            $width = '100%';
+            $height = '300';
+            if($iframe->hasAttribute('height')) {
+                $height = $iframe->getAttribute('height');
+            }
+
+            // Create a new paragraph, and insert the iframe shortcode
+            $embed_shortcode = $dom->createElement('p');
+            $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+
+            // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
+            $iframe->parentNode->replaceChild($embed_shortcode, $iframe);
         }
 
         $html = $dom->saveHTML();
@@ -747,6 +784,31 @@ class RESTfulSyndication {
         );
      
         return $schedules;
+    }
+
+    public function sc_iframe($atts) {
+        // This iFrame can only be used on posts imported by this plugin
+        // It is a security mechanism instead of just allowing iFrame's for all users accross the site
+        // We assume the source site is at least semi-trusted (trusted enough to embed an iframe at least)
+
+        $a = shortcode_atts(array(
+            "src" => "",
+            "width" => "100%",
+            "height" => "200",
+        ), $atts);
+
+        global $post;
+        if(!isset($post)) {
+            return '';
+        }
+
+        $source_guid = get_post_meta($post->ID, '_'.$this->settings_prefix.'source_guid', true);
+
+        if(empty($source_guid)) {
+            return '';
+        }
+
+        return '<iframe src="'.esc_url($a['src']).'" width="'.esc_attr($a['width']).'" height="'.esc_attr($a['height']).'"></iframe>';
     }
 
     private function random_str($length, $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+`~') {
