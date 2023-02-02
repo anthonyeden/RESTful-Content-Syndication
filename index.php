@@ -182,26 +182,26 @@ class RESTfulSyndication {
 
         if($field['type'] == "text") {
             // Text fields
-            echo '<input type="text" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" />';
+            echo '<input type="text" name="restful-syndication_settings['.esc_attr($args['field_key']).']" value="'.esc_attr($value).'" />';
         }  elseif($field['type'] == "textarea") {
             // Textarea fields
-            echo '<textarea name="restful-syndication_settings['.$args['field_key'].']">'.htmlspecialchars($value, ENT_QUOTES).'</textarea>';
+            echo '<textarea name="restful-syndication_settings['.esc_attr($args['field_key']).']">'.esc_html($value).'</textarea>';
         } elseif($field['type'] == "password") {
             // Password fields
-            echo '<input type="password" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" />';
+            echo '<input type="password" name="restful-syndication_settings['.esc_attr($args['field_key']).']" value="'.esc_attr($value).'" />';
         } elseif($field['type'] == "select") {
             // Select / drop-down fields
             echo '<select name="restful-syndication_settings['.$args['field_key'].']">';
             foreach($field['options'] as $selectValue => $name) {
-                echo '<option value="'.$selectValue.'" '.($value == $selectValue ? "selected" : "").'>'.$name.'</option>';
+                echo '<option value="'.esc_attr($selectValue).'" '.($value == $selectValue ? "selected" : "").'>'.esc_html($name).'</option>';
             }
             echo '</select>';
         } elseif($field['type'] == "checkbox") {
             // Checkbox fields
-            echo '<input type="checkbox" name="restful-syndication_settings['.$args['field_key'].']" value="true" '.("true" == $value ? "checked" : "").' />';
+            echo '<input type="checkbox" name="restful-syndication_settings['.esc_attr($args['field_key']).']" value="true" '.("true" == $value ? "checked" : "").' />';
         } elseif($field['type'] == "readonly") {
             // Readonly field
-            echo '<input type="text" name="restful-syndication_settings['.$args['field_key'].']" value="'.htmlspecialchars($value, ENT_QUOTES).'" readonly />';
+            echo '<input type="text" name="restful-syndication_settings['.esc_attr($args['field_key']).']" value="'.esc_attr($value).'" readonly />';
         }
     }
 
