@@ -241,11 +241,15 @@ class RESTfulSyndication {
         echo '<h2>Ingest Posts Now</h2>';
         echo "<p>This plugin uses WP-Cron to automatically ingest posts every 15 minutes. If you're impatient, you can do it now using the button below.</p>";
         if(isset($_GET['ingestnow']) && $_GET['ingestnow'] == "true") {
+
+            // Verify nonce
+            check_admin_referer('restful_syndication_ingest');
+
             echo "<p><strong>Attempting syndication now...</strong></p>";
             $this->syndicate();
             echo '<p><strong>Syndication complete!</strong></p>';
         } else {
-            echo '<p class="submit"><a href="?page='.$_GET['page'].'&ingestnow=true" class="button button-primary">Ingest Posts Now</a></p>';
+            echo '<p class="submit"><a href="'.wp_nonce_url('?page='.$_GET['page'].'&ingestnow=true', 'restful_syndication_ingest').'" class="button button-primary">Ingest Posts Now</a></p>';
         }
         
 
