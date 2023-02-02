@@ -73,6 +73,16 @@ class RESTfulSyndication {
             "type" => "select",
             "options" => array()
         ),
+        "purge_media_days" => array(
+            "title" => "Auto Purge Media After X Days",
+            "type" => "text",
+            "default" => "",
+        ),
+        "purge_posts_days" => array(
+            "title" => "Auto Purge Posts After X Days",
+            "type" => "text",
+            "default" => "",
+        ),
         "remote_push_key" => array(
             "title" => "Remote Content Push - Secure Key",
             "type" => "readonly",
@@ -217,8 +227,12 @@ class RESTfulSyndication {
 
         // Display a history of successful syndication runs
         $runs = get_option($this->settings_prefix . 'history', array());
+        $runs_delete = get_option($this->settings_prefix . 'history_delete', array());
+        $runs_delete_media = get_option($this->settings_prefix . 'history_delete_media', array());
         $last_attempt = get_option($this->settings_prefix . 'last_attempt', 0);
         krsort($runs);
+        krsort($runs_delete);
+        krsort($runs_delete_media);
 
         echo '<h2>Syndication History</h2>';
         echo '<p>Last Attempted Run: '.($last_attempt > 0 ? date("Y-m-d H:i:s", $last_attempt) : "NEVER").'</p>';
@@ -234,6 +248,22 @@ class RESTfulSyndication {
         }
         if(count($runs) === 0) {
             echo '<li>No posts have ever been ingested by this plugin</li>';
+        }
+        $runCount = 0;
+        foreach($runs_delete as $time => $count) {
+            echo '<li>'.date("Y-m-d H:i:s", $time).': '.$count.' '.($count == 1 ? "post" : "posts").' deleted</li>';
+            $runCount++;
+
+            if($runCount > 10)
+                break;
+        }
+        $runCount = 0;
+        foreach($runs_delete_media as $time => $count) {
+            echo '<li>'.date("Y-m-d H:i:s", $time).': '.$count.' media files deleted</li>';
+            $runCount++;
+
+            if($runCount > 10)
+                break;
         }
         echo '</ul>';
 
@@ -305,18 +335,41 @@ class RESTfulSyndication {
         }
 
         $count = 0;
+        $count_delete = 0;
+        $count_delete_media = 0;
 
+        // Loop over every post and create a post entry
         foreach($posts as $post) {
-            // Loop over every post and create a post entry
             $this->syndicate_one($post);
             $count++;
+        }
 
+        // Delete media older than a certain date
+        if(is_numeric($options['purge_media_days']) && $options['purge_media_days'] > 7) {
+            $count_delete_media += count($this->clean_media($options['purge_media_days'], $options['post_type']));
+        }
+
+        // Delete posts older than a certain date
+        if(is_numeric($options['purge_posts_days']) && $options['purge_posts_days'] > 7) {
+            $count_delete += count($this->clean_posts($options['purge_posts_days'], $options['post_type']));
         }
 
         if($count > 0) {
             $runs = get_option($this->settings_prefix . 'history', array());
             $runs[time()] = $count;
             update_option($this->settings_prefix . 'history', $runs);
+        }
+
+        if($count_delete > 0) {
+            $runs = get_option($this->settings_prefix . 'history_delete', array());
+            $runs[time()] = $count_delete;
+            update_option($this->settings_prefix . 'history_delete', $runs);
+        }
+
+        if($count_delete_media > 0) {
+            $runs = get_option($this->settings_prefix . 'history_delete_media', array());
+            $runs[time()] = $count_delete_media;
+            update_option($this->settings_prefix . 'history_delete_media', $runs);
         }
 
         update_option($this->settings_prefix . 'last_attempt', time());
@@ -685,6 +738,133 @@ class RESTfulSyndication {
         $post_id = $this->syndicate_one($payload, true, $force_publish, true);
 
         return array("post_id" => $post_id);
+    }
+
+    private function clean_media($days, $post_type) {
+        // Deletes media after a certain age
+
+        if(!is_numeric($days)) {
+            return;
+        }
+
+        $days = absint($days);
+
+        if($days < 7) {
+            return;
+        }
+
+        // Find posts
+        $post_ids = $this->posts_older_than($days, $post_type);
+
+        $return = array();
+        
+        // Loop over posts and find featured images attached to these posts
+        foreach($post_ids as $post_id) {
+            $image_id = get_post_thumbnail_id($post_id);
+
+            if($image_id === false) {
+                continue;
+            }
+
+            // Send the attachment to the trash
+            $delete_image = wp_delete_attachment($image_id, false);
+
+            if($delete_image !== false) {
+                $return[] = $image_id;
+            }
+        }
+
+        return $return;
+    }
+
+    private function clean_posts($days, $post_type) {
+        // Deletes posts after a certain age
+
+        if(!is_numeric($days)) {
+            return;
+        }
+
+        $days = absint($days);
+
+        if($days < 7) {
+            return;
+        }
+
+        // Find posts
+        $post_ids = $this->posts_older_than($days, $post_type);
+
+        $return = array();
+
+        // Loop over posts
+        foreach($post_ids as $post_id) {
+            // Delete featured image first
+            $image_id = get_post_thumbnail_id($post_id);
+
+            if($image_id !== false) {
+                // Send the attachment to the trash
+                $delete_image = wp_delete_attachment($image_id, false);
+
+                if($delete_image !== false) {
+                    $return[] = $image_id;
+                }
+            }
+
+            // Now delete the post itself
+            $delete_post = wp_trash_post($post_id);
+            if($delete_post !== false) {
+                $return[] = $post_id;
+            }
+        }
+
+        return $return;
+    }
+
+    private function posts_older_than($days, $post_type) {
+        // Returns a list of Posts older than a certain age
+
+        if(!is_numeric($days)) {
+            return array();
+        }
+
+        $days = absint($days);
+
+        $options = get_option($this->settings_prefix . 'settings');
+        $domain = parse_url($options['site_url'], PHP_URL_HOST);
+        $domain_1 = 'https://' . $domain;
+        $domain_2 = 'http://' . $domain;
+
+        if($domain_1 == 'https://' || $domain_2 == 'http://') {
+            return array();
+        }
+
+        $posts = new WP_Query(array(
+            'post_type' => $post_type,
+            'orderby'   => 'post_date_gmt',
+            'order' => 'ASC',
+            'meta_query' => array(
+                'relation' => 'OR',
+                'meta_value_1' => array(
+                      'key' => '_'.$this->settings_prefix.'source_guid',
+                      'value' => $domain_1,
+                      'compare' => 'LIKE',
+                ),
+                'meta_value_2' => array(
+                    'key' => '_'.$this->settings_prefix.'source_guid',
+                    'value' => $domain_2,
+                    'compare' => 'LIKE',
+              )
+            ),
+            'date_query' => array(
+                array(
+                    'column' => 'post_date_gmt',
+                    'before' => $days . ' days ago',
+                ),
+            ),
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+        ));
+
+        return $posts->posts;
     }
 
     private function post_guid_exists($guid) {
