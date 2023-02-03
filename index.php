@@ -762,14 +762,14 @@ class RESTfulSyndication {
         foreach($post_ids as $post_id) {
             $image_id = get_post_thumbnail_id($post_id);
 
-            if($image_id === false) {
+            if($image_id === false || $image_id === 0) {
                 continue;
             }
 
             // Send the attachment to the trash
             $delete_image = wp_delete_attachment($image_id, false);
 
-            if($delete_image !== false) {
+            if($delete_image !== false && $delete_image !== null) {
                 $return[] = $image_id;
             }
         }
