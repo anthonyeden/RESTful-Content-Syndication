@@ -346,12 +346,12 @@ class RESTfulSyndication {
 
         // Delete media older than a certain date
         if(is_numeric($options['purge_media_days']) && $options['purge_media_days'] > 7) {
-            $count_delete_media += count($this->clean_media($options['purge_media_days'], $options['post_type']));
+            $count_delete_media += count($this->clean_media($options['purge_media_days'], 'post'));
         }
 
         // Delete posts older than a certain date
         if(is_numeric($options['purge_posts_days']) && $options['purge_posts_days'] > 7) {
-            $count_delete += count($this->clean_posts($options['purge_posts_days'], $options['post_type']));
+            $count_delete += count($this->clean_posts($options['purge_posts_days'], 'post'));
         }
 
         if($count > 0) {
