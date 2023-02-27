@@ -499,6 +499,42 @@ class RESTfulSyndication {
             }
         }
 
+        // Find Instagram embeds, and turn them into [restful_syndication_iframe] shortcodes
+        $instagrams = $dom->getElementsByTagName('blockquote');
+
+        foreach($instagrams as $instagram) {
+
+            // Skip non-youtube blockquotes
+            if(!$instagram->hasAttribute('data-instgrm-permalink'))
+                continue;
+
+            // Get the original Instagram URL
+            $url = $instagram->getAttribute('data-instgrm-permalink');
+
+            // Skip empty URLs
+            if(empty($url)) {
+                continue;
+            }
+
+            // Add /embed to URL
+            $url_parsed = parse_url($url);
+            if($url_parsed === false) {
+                continue;
+            }
+            $url = $url_parsed['scheme'] . "://" . $url_parsed['host'] . str_replace("//", "/", $url_parsed['path'] . "/embed") . "?" . $url_parsed['query'];
+
+            // Get width and height
+            $width = '100%';
+            $height = '650';
+
+            // Create a new paragraph, and insert the iframe shortcode
+            $embed_shortcode = $dom->createElement('p');
+            $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+
+            // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
+            $instagram->parentNode->replaceChild($embed_shortcode, $instagram);
+        }
+
         // Find iFrames, and turn them into [restful_syndication_iframe] shortcodes
         $iframes = $dom->getElementsByTagName('iframe');
 
@@ -992,7 +1028,7 @@ class RESTfulSyndication {
             return '';
         }
 
-        return '<iframe src="'.esc_url($a['src']).'" width="'.esc_attr($a['width']).'" height="'.esc_attr($a['height']).'"></iframe>';
+        return '<iframe src="'.esc_url($a['src']).'" width="'.esc_attr($a['width']).'" height="'.esc_attr($a['height']).'" border="0"></iframe>';
     }
 
     private function random_str($length, $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+`~') {
