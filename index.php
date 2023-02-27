@@ -412,10 +412,16 @@ class RESTfulSyndication {
             return;
         }
 
-        // Download any embedded images found in the HTML
-        $dom = new domDocument;
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $post['content']['rendered'], LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+        // Strip some problematic conditional tags from the HTML
+        $html = $post['content']['rendered'];
+        $html = str_replace("<!--[if lt IE 9]>", "", $html);
+        $html = str_replace("<![endif]-->", "", $html);
 
+        // Parse the HTML
+        $dom = new domDocument;
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+
+        // Find and download any embedded images found in the HTML
         $images = $dom->getElementsByTagName('img');
         $images_to_attach = array();
 
@@ -455,9 +461,13 @@ class RESTfulSyndication {
             $audio_source = $audio->getElementsByTagName('source');
             $url = $audio_source->item(0)->getAttribute('src');
 
+            if(empty($url)) {
+                continue;
+            }
+
             // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
             // See https://core.trac.wordpress.org/ticket/30377
-            // As a workaround, we strip URL parameters
+            // As a partial workaround, we strip URL parameters
             if(strpos($url, "?") !== false) {
                 $url = substr($url, 0, strpos($url, "?"));
             }
@@ -467,7 +477,7 @@ class RESTfulSyndication {
             $audio_shortcode->setAttribute('class', 'audio-filter');
             $audio_shortcode->nodeValue = '[audio src="'.esc_url($url).'"]';
 
-            // Replace the original <audio> tag with this new <p>[audio]</p> arrangement
+            // Replace the original <audio> tag with this new <div class="audio-filter">[audio]</div> arrangement
             $audio->parentNode->replaceChild($audio_shortcode, $audio);
         }
 
