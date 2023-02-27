@@ -3,7 +3,7 @@
 Plugin Name: RESTful Content Syndication
 Plugin URI: https://mediarealm.com.au/
 Description: Import content from the Wordpress REST API on another Wordpress site
-Version: 1.2.1
+Version: 1.3.0
 Author: Media Realm
 Author URI: https://www.mediarealm.com.au/
 License: GPL2

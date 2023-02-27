@@ -19,11 +19,11 @@ There is a small selection of options, allowing you select the author, default p
 
 == Installation ==
 
-1. Upload the plugin files to the `/wp-content/plugins/restful-syndication` directory, or install the plugin through the WordPress plugins screen directly.
+1. Install this plugin through the WordPress plugins screen.
 2. Activate the plugin through the 'Plugins' screen in WordPress
-3. Use the Settings->RESTful Syndication screen to configure the plugin
+3. Use the Settings -> RESTful Syndication screen to configure the plugin
  a. Set the 'Master Site URL' to the base URL of the site to pull the content from (e.g. https://example.com/)
- b. Username and Password are not required by default (but may be required by the person running the Master Site)
+ b. Username and Password are not required by default (but may be required by the person running the Master Site). You can use the WordPress Applicaton Password feature for authentication.
  c. Set the other options as desired
  d. Save your settings
  e. Press the 'Ingest Posts Now' button to test it works!
@@ -46,7 +46,7 @@ Check your web host has installed the appropriate CA Root Certs for PHP's CURL.
 
 = Something isn't working. What do I do? =
 
-Find the PHP Error log for your website/web-server. Any errors from this plugin should be prefixed with 'RESTful Syndication ERROR'.
+Find the PHP Error Log for your website/web-server. Any errors from this plugin should be prefixed with 'RESTful Syndication ERROR'.
 
 = Do you provide support? =
 
@@ -57,6 +57,17 @@ Commercial support may be available from Media Realm (for a fee). Email us here:
 You may be able to sponsor feature development. Email us here with your feature request and budget: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.3.0 =
+
+* Add new options to purge media & posts older than a certain number of days
+* Additional compatibility for YouTube and Audio embeds
+* Allow iFrames to be syndicated
+* Translate Instagram embeds into iFrames
+* Bugfix for Audio embeds
+* Catch errors causing empty posts to be syndicated
+* Security hardening on the admin screen
+* Additional logging details
 
 = 1.2.1 =
 
