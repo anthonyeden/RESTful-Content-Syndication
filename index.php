@@ -64,6 +64,11 @@ class RESTfulSyndication {
             "title" => "Create Missing Categories?",
             "type" => "checkbox",
         ),
+        "automatic_category" => array(
+            "title" => "Add specific category to every incoming post",
+            "type" => "select",
+            "options" => array(0 => '')
+        ),
         "yoast_noindex" => array(
             "title" => "Always Enable Yoast No-Index?",
             "type" => "checkbox",
@@ -145,6 +150,15 @@ class RESTfulSyndication {
         $users = get_users(array('fields' => array('ID', 'display_name')));
         foreach($users as $user_id) {
             $this->settings['default_author']['options'][$user_id->ID] = $user_id->display_name;
+        }
+
+        // Add a list of categories
+        $categories = get_terms(array(
+            'taxonomy' => 'category',
+            'hide_empty' => false,
+        ));
+        foreach($categories as $category) {
+            $this->settings['automatic_category']['options'][$category->term_id] = $category->name;
         }
 
         // Add the list of image sizes used on this site
@@ -583,6 +597,10 @@ class RESTfulSyndication {
 
         // Find local matching categories, or create missing ones
         $categories = array();
+
+        if(isset($options['automatic_category']) && !empty($options['automatic_category']) && $options['automatic_category'] !== 0) {
+            $categories[] = $options['automatic_category'];
+        }
 
         if(isset($post['_links']['wp:term'])) {
             foreach($post['_links']['wp:term'] as $term_link) {
