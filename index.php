@@ -974,6 +974,18 @@ class RESTfulSyndication {
             $file = $upload_dir['basedir'] . '/' . $filename;
         }
 
+        // Lookup existing file by meta field
+        $search_existing = get_posts(array(
+            'post_type'      => 'attachment',
+            'meta_key'       => 'restfulsyndication_original_url',
+            'meta_value'     => $url,
+            'posts_per_page' => 1,
+        ));
+
+        if(is_array($search_existing) && count($search_existing) > 0 && isset($search_existing[0]->ID)) {
+            return $search_existing[0]->ID;
+        }
+
         if(file_exists($file)) {
             // File already exists - get the attachment ID
             $url_new = content_url(substr($file, strpos($file, "/uploads/")));
@@ -1002,6 +1014,8 @@ class RESTfulSyndication {
             
             $attach_data = wp_generate_attachment_metadata($attach_id, $file);
             wp_update_attachment_metadata($attach_id, $attach_data);
+
+            update_post_meta($attach_id, 'restfulsyndication_original_url', $url);
 
             if(!file_exists($file)) {
                 $this->log("Image doesn't exist after processing " . $file);
