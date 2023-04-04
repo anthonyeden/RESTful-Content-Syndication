@@ -3,7 +3,7 @@ Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
 Requires at least: 5.9.5
 Tested up to: 6.1.1
-Requires PHP: 7.4.0
+Requires PHP: 7.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,13 +50,18 @@ Find the PHP Error Log for your website/web-server. Any errors from this plugin 
 
 = Do you provide support? =
 
-Commercial support may be available from Media Realm (for a fee). Email us here: https://mediarealm.com.au/contact/
+Commercial support is available from Media Realm (for a fee). Email us here: https://mediarealm.com.au/contact/
 
 = Can you add a certain feature? =
 
-You may be able to sponsor feature development. Email us here with your feature request and budget: https://mediarealm.com.au/contact/
+You may be able to sponsor feature development. Email us here with your feature request: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.4.0 =
+
+* Adds an option for add a specific category to every incoming post
+* Tracks syndicated media in a meta field, instead of relying on the filename.
 
 = 1.3.0 =
 
