@@ -675,11 +675,19 @@ class RESTfulSyndication {
         }
 
         if(!isset($post['yoast_meta']['yoast_wpseo_metadesc'])) {
-            $post['yoast_meta']['yoast_wpseo_metadesc'] = "";
+            if(isset($post['yoast_head_json']['description']) && !empty($post['yoast_head_json']['description'])) {
+                $post['yoast_meta']['yoast_wpseo_metadesc'] = $post['yoast_head_json']['description'];
+            } else {
+                $post['yoast_meta']['yoast_wpseo_metadesc'] = "";
+            }
         }
 
         if(!isset($post['yoast_meta']['yoast_wpseo_canonical'])) {
-            $post['yoast_meta']['yoast_wpseo_canonical'] = $post['link'];
+            if(isset($post['yoast_head_json']['canonical']) && !empty($post['yoast_head_json']['canonical'])) {
+                $post['yoast_meta']['yoast_wpseo_canonical'] = $post['yoast_head_json']['canonical'];
+            } else {
+                $post['yoast_meta']['yoast_wpseo_canonical'] = $post['link'];
+            }
         }
 
         if($options['yoast_noindex'] == "true") {
