@@ -2,7 +2,7 @@
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
 Requires at least: 5.9.5
-Tested up to: 6.1.1
+Tested up to: 6.2
 Requires PHP: 7.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -38,7 +38,7 @@ If you also control the master site, and use the Yoast SEO plugin, you may want 
 
 No, so long as the master site has the Wordpress REST API enabled, then you're all good to go.
 
-If you use Yoast, you can optionally install https://github.com/ChazUK/wp-api-yoast-meta to get canonical URLs and Meta Descriptions.
+If both the Master and Child sites use Yoast SEO, the Canonical URLs and Meta Descriptions of each post will also be imported.
 
 = I'm having trouble connecting to a HTTPS Master Site, but HTTP works fine. =
 
@@ -58,9 +58,14 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.4.1 =
+
+* Uses the native Yoast SEO REST fields, instead of fields supplied by a third party plugin
+* Adds additional checks to see if Yoast fields are populated or empty
+
 = 1.4.0 =
 
-* Adds an option for add a specific category to every incoming post
+* Adds an option to add a specific category to every incoming post
 * Tracks syndicated media in a meta field, instead of relying on the filename.
 
 = 1.3.0 =
