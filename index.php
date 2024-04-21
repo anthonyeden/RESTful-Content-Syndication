@@ -319,6 +319,7 @@ class RESTfulSyndication {
             ($full === false ? $options['site_url'] : "") . $url,
             array(
                 "headers" => $headers,
+                "timeout" => 20,
             )
         );
 
