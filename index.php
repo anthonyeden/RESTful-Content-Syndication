@@ -965,9 +965,19 @@ class RESTfulSyndication {
 
         require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-        // Get the source file
-        $image_data = file_get_contents($url);
         $filename = basename($url);
+        $response = wp_remote_get($url,
+            array(
+                "timeout" => 30,
+            )
+        );
+
+        if(is_wp_error($response)) {
+            $this->log("HTTP request failed when downloading image. " . $response->get_error_message());
+            return;
+        }
+
+        $image_data = wp_remote_retrieve_body($response);
 
         if(empty($image_data)) {
             $this->log("Failed to download image " . $url);
