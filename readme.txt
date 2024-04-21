@@ -58,6 +58,11 @@ You may be able to sponsor feature development. Email us here with your feature 
 
 == Changelog ==
 
+= 1.4.2 =
+
+* Add an explicit timeout for accessing the REST API
+* When downloading images, use wp_remote_get instead of file_get_contents
+
 = 1.4.1 =
 
 * Uses the native Yoast SEO REST fields, instead of fields supplied by a third party plugin
