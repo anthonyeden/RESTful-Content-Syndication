@@ -390,13 +390,19 @@ class RESTfulSyndication {
         update_option($this->settings_prefix . 'last_attempt', time());
     }
 
-    private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false) {
+    private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false, $post_status = false, $allow_overwrite = false) {
         // Process one post
 
         $options = get_option($this->settings_prefix . 'settings');
 
+        // Setting this to 0 creates a new post.
+        $existing_post_id = 0;
+
         // Have we already ingested this post?
-        if($this->post_guid_exists($post['guid']['rendered']) !== null) {
+        if($allow_overwrite === true && $this->post_guid_exists($post['guid']['rendered']) !== null) {
+            $existing_post_id = $this->post_guid_exists($post['guid']['rendered']);
+
+        } else if($this->post_guid_exists($post['guid']['rendered']) !== null) {
             // Already exists on this site - skip over this post
             return;
         }
@@ -699,13 +705,13 @@ class RESTfulSyndication {
 
         if($force_publish == true) {
             $post_status = 'publish';
-        } else {
+        } elseif($post_status == false) {
             $post_status = $options['default_status'];
         }
 
         // Insert a new post
         $post_id = wp_insert_post(array(
-            'ID' => 0,
+            'ID' => $existing_post_id,
             'post_author' => $author,
             'post_date' => $post['date'],
             'post_date_gmt' => $post['date_gmt'],
@@ -797,18 +803,22 @@ class RESTfulSyndication {
         $payload = $this->rest_fetch($_POST['restful_push_url'], true);
 
         if(empty($payload) || $payload == null) {
-            return array("error_msg" => 'Failed to fetch post data from API', "errors" => $errors_logged);
+            return array("error" => 'Failed to fetch post data from API', "errors" => $errors_logged);
         }
 
-        // Should this be auto-published?
-        if(isset($_POST['restful_publish']) && $_POST['restful_publish'] == 'true') {
-            $force_publish = true;
-        } else {
-            $force_publish = false;
+        $post_status = false;
+
+        // Post Status & Scheduled Date
+        if(isset($_POST['post_status']) && in_array($_POST['post_status'], array('draft', 'pending', 'publish', 'future'))) {
+            $post_status = $_POST['post_status'];
+
+            if($_POST['post_status'] == 'future' && isset($_POST['schedule_date'])) {
+                $payload['date'] = wp_date('Y-m-d H:i:s', $this->wp_strtotime($_POST['schedule_date']));
+            }
         }
 
         // Process data
-        $post_id = $this->syndicate_one($payload, true, $force_publish, true);
+        $post_id = $this->syndicate_one($payload, true, $force_publish, true, $post_status, true);
 
         return array("post_id" => $post_id);
     }
@@ -1101,6 +1111,17 @@ class RESTfulSyndication {
         }
         return $str;
     }
+
+    private function wp_strtotime($str) {
+        // Timezone aware strtotime()
+        try {
+            $datetime = new DateTime($str, wp_timezone());
+        } catch (Exception $e)  {
+            return false;
+        }
+
+        return $datetime->format('U');
+   }
 
 }
 
