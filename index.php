@@ -107,6 +107,8 @@ class RESTfulSyndication {
         add_action('restful-syndication_cron', array($this, 'syndicate'));
         add_filter('cron_schedules', array($this, 'cron_schedules'));
 
+        add_action('rest_api_init', array($this, 'rest_api_raw_post_content'));
+
         add_shortcode('restful_syndication_iframe', array($this, 'sc_iframe'));
 
         add_action('rest_api_init', function () {
@@ -428,179 +430,191 @@ class RESTfulSyndication {
             return;
         }
 
-        if(!isset($post['content']['rendered']) || empty($post['content']['rendered'])) {
+        if(isset($post['content_raw']) && !empty($post['content_raw'])) {
+            $content = $post['content_raw'];
+            $content_type = 'raw';
+        } else if(isset($post['content']['rendered']) && !empty($post['content']['rendered'])) {
+            $content = $post['content']['rendered'];
+            $content_type = 'rendered';
+        }
+
+        if(!isset($content)) {
             $this->log("Post body is empty - skipping. " . $post['guid']['rendered']);
             return;
         }
 
-        // Strip some problematic conditional tags from the HTML
-        $html = $post['content']['rendered'];
-        $html = str_replace("<!--[if lt IE 9]>", "", $html);
-        $html = str_replace("<![endif]-->", "", $html);
+        if($content_type == 'rendered') {
+            // Strip some problematic conditional tags from the HTML
+            $html = $content;
+            $html = str_replace("<!--[if lt IE 9]>", "", $html);
+            $html = str_replace("<![endif]-->", "", $html);
 
-        // Parse the HTML
-        $dom = new domDocument;
-        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+            // Parse the HTML
+            $dom = new domDocument;
+            $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
 
-        // Find and download any embedded images found in the HTML
-        $images = $dom->getElementsByTagName('img');
-        $images_to_attach = array();
+            // Find and download any embedded images found in the HTML
+            $images = $dom->getElementsByTagName('img');
+            $images_to_attach = array();
 
-        foreach($images as $imgKey => $img) {
-            // Download the image and attach it
-            $url = $img->getAttribute('src');
-            $attachment_id = $this->ingest_image($url);
-            
-            // Update the SRC in the HTML
-            $url_new = wp_get_attachment_image_src($attachment_id, $options['image_embed_size']);
-            $img->setAttribute('src', $url_new[0]);
-            $img->setAttribute('width', $url_new[1]);
-            $img->setAttribute('height', $url_new[2]);
-            $img->removeAttribute('srcset');
-            $img->removeAttribute('sizes');
+            foreach($images as $imgKey => $img) {
+                // Download the image and attach it
+                $url = $img->getAttribute('src');
+                $attachment_id = $this->ingest_image($url);
+                
+                // Update the SRC in the HTML
+                $url_new = wp_get_attachment_image_src($attachment_id, $options['image_embed_size']);
+                $img->setAttribute('src', $url_new[0]);
+                $img->setAttribute('width', $url_new[1]);
+                $img->setAttribute('height', $url_new[2]);
+                $img->removeAttribute('srcset');
+                $img->removeAttribute('sizes');
 
-            // Later on, we'll link these attachments to this specific post
-            $images_to_attach[] = $attachment_id;
+                // Later on, we'll link these attachments to this specific post
+                $images_to_attach[] = $attachment_id;
 
-            // Fix up the classes
-            $classes = explode(" ", $img->getAttribute('class'));
-            foreach($classes as $classKey => $class) {
-                if(substr($class, 0, 9) == "wp-image-") {
-                    $classes[$classKey] = "wp-image-" . $attachment_id;
-                } elseif(substr($class, 0, 5) == "size-") {
-                    $classes[$classKey] = "size-" . $options['image_embed_size'];
+                // Fix up the classes
+                $classes = explode(" ", $img->getAttribute('class'));
+                foreach($classes as $classKey => $class) {
+                    if(substr($class, 0, 9) == "wp-image-") {
+                        $classes[$classKey] = "wp-image-" . $attachment_id;
+                    } elseif(substr($class, 0, 5) == "size-") {
+                        $classes[$classKey] = "size-" . $options['image_embed_size'];
+                    }
                 }
-            }
-            $img->setAttribute('class', implode(" ", $classes));
-        }
-
-        // Turn <audio> tags into [audio] shortcodes
-        $audios = $dom->getElementsByTagName('audio');
-
-        foreach($audios as $audioKey => $audio) {
-            // Get the original audio URL
-            $audio_source = $audio->getElementsByTagName('source');
-            $url = $audio_source->item(0)->getAttribute('src');
-
-            if(empty($url)) {
-                continue;
+                $img->setAttribute('class', implode(" ", $classes));
             }
 
-            // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
-            // See https://core.trac.wordpress.org/ticket/30377
-            // As a partial workaround, we strip URL parameters
-            if(strpos($url, "?") !== false) {
-                $url = substr($url, 0, strpos($url, "?"));
-            }
+            // Turn <audio> tags into [audio] shortcodes
+            $audios = $dom->getElementsByTagName('audio');
 
-            // Create a new paragraph, and insert the audio shortcode
-            $audio_shortcode = $dom->createElement('div');
-            $audio_shortcode->setAttribute('class', 'audio-filter');
-            $audio_shortcode->nodeValue = '[audio src="'.esc_url($url).'"]';
+            foreach($audios as $audioKey => $audio) {
+                // Get the original audio URL
+                $audio_source = $audio->getElementsByTagName('source');
+                $url = $audio_source->item(0)->getAttribute('src');
 
-            // Replace the original <audio> tag with this new <div class="audio-filter">[audio]</div> arrangement
-            $audio->parentNode->replaceChild($audio_shortcode, $audio);
-        }
+                if(empty($url)) {
+                    continue;
+                }
 
-        // Find YouTube embeds, and turn them into [embed] shortcodes
-        $youtubes = $dom->getElementsByTagName('div');
-
-        foreach($youtubes as $youtubeKey => $youtube) {
-
-            // Skip non-youtube divs
-            if(!$youtube->hasAttribute('class') || (strpos($youtube->getAttribute('class'), 'embed_youtube') === false && strpos($youtube->getAttribute('class'), 'video-filter') === false))
-                continue;
-
-            // Get the original YouTube embed URL
-            $video_source = $youtube->getElementsByTagName('iframe');
-            $url = $video_source->item(0)->getAttribute('src');
-
-            // Parse the Video ID from the URL
-            if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
-                // Create the new URL
-                $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
+                // There is a bug in Wordpress causing audio URLs with URL Parameters to fail to load the player
+                // See https://core.trac.wordpress.org/ticket/30377
+                // As a partial workaround, we strip URL parameters
+                if(strpos($url, "?") !== false) {
+                    $url = substr($url, 0, strpos($url, "?"));
+                }
 
                 // Create a new paragraph, and insert the audio shortcode
-                $embed_shortcode = $dom->createElement('div');
-                $embed_shortcode->setAttribute('class', 'video-filter');
-                $embed_shortcode->nodeValue = '[embed]'.esc_url($url_new).'[/embed]';
+                $audio_shortcode = $dom->createElement('div');
+                $audio_shortcode->setAttribute('class', 'audio-filter');
+                $audio_shortcode->nodeValue = '[audio src="'.esc_url($url).'"]';
 
-                // Replace the original <div class="embed_youtube"> tag with this new <div>[embed]url[/embed]</div> arrangement
-                $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
+                // Replace the original <audio> tag with this new <div class="audio-filter">[audio]</div> arrangement
+                $audio->parentNode->replaceChild($audio_shortcode, $audio);
             }
+
+            // Find YouTube embeds, and turn them into [embed] shortcodes
+            $youtubes = $dom->getElementsByTagName('div');
+
+            foreach($youtubes as $youtubeKey => $youtube) {
+
+                // Skip non-youtube divs
+                if(!$youtube->hasAttribute('class') || (strpos($youtube->getAttribute('class'), 'embed_youtube') === false && strpos($youtube->getAttribute('class'), 'video-filter') === false))
+                    continue;
+
+                // Get the original YouTube embed URL
+                $video_source = $youtube->getElementsByTagName('iframe');
+                $url = $video_source->item(0)->getAttribute('src');
+
+                // Parse the Video ID from the URL
+                if(preg_match("/^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$/", $url, $matches_youtube) === 1) {
+                    // Create the new URL
+                    $url_new = "https://youtube.com/watch?v=" . $matches_youtube[5];
+
+                    // Create a new paragraph, and insert the audio shortcode
+                    $embed_shortcode = $dom->createElement('div');
+                    $embed_shortcode->setAttribute('class', 'video-filter');
+                    $embed_shortcode->nodeValue = '[embed]'.esc_url($url_new).'[/embed]';
+
+                    // Replace the original <div class="embed_youtube"> tag with this new <div>[embed]url[/embed]</div> arrangement
+                    $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
+                }
+            }
+
+            // Find Instagram embeds, and turn them into [restful_syndication_iframe] shortcodes
+            $instagrams = $dom->getElementsByTagName('blockquote');
+
+            foreach($instagrams as $instagram) {
+
+                // Skip non-youtube blockquotes
+                if(!$instagram->hasAttribute('data-instgrm-permalink'))
+                    continue;
+
+                // Get the original Instagram URL
+                $url = $instagram->getAttribute('data-instgrm-permalink');
+
+                // Skip empty URLs
+                if(empty($url)) {
+                    continue;
+                }
+
+                // Add /embed to URL
+                $url_parsed = parse_url($url);
+                if($url_parsed === false) {
+                    continue;
+                }
+                $url = $url_parsed['scheme'] . "://" . $url_parsed['host'] . str_replace("//", "/", $url_parsed['path'] . "/embed") . "?" . $url_parsed['query'];
+
+                // Get width and height
+                $width = '100%';
+                $height = '650';
+
+                // Create a new paragraph, and insert the iframe shortcode
+                $embed_shortcode = $dom->createElement('p');
+                $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+
+                // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
+                $instagram->parentNode->replaceChild($embed_shortcode, $instagram);
+            }
+
+            // Find iFrames, and turn them into [restful_syndication_iframe] shortcodes
+            $iframes = $dom->getElementsByTagName('iframe');
+
+            foreach($iframes as $iframeKey => $iframe) {
+
+                // Skip iframes without src field
+                if(!$iframe->hasAttribute('src')) {
+                    continue;
+                }
+
+                // Get the original iFrame src URL
+                $url = $iframe->getAttribute('src');
+
+                // Skip empty URLs
+                if(empty($url)) {
+                    continue;
+                }
+
+                // Get width and height
+                $width = '100%';
+                $height = '300';
+                if($iframe->hasAttribute('height')) {
+                    $height = $iframe->getAttribute('height');
+                }
+
+                // Create a new paragraph, and insert the iframe shortcode
+                $embed_shortcode = $dom->createElement('p');
+                $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+
+                // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
+                $iframe->parentNode->replaceChild($embed_shortcode, $iframe);
+            }
+
+            $html = $dom->saveHTML();
+            $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
+        } else {
+            $html = $content;
         }
-
-        // Find Instagram embeds, and turn them into [restful_syndication_iframe] shortcodes
-        $instagrams = $dom->getElementsByTagName('blockquote');
-
-        foreach($instagrams as $instagram) {
-
-            // Skip non-youtube blockquotes
-            if(!$instagram->hasAttribute('data-instgrm-permalink'))
-                continue;
-
-            // Get the original Instagram URL
-            $url = $instagram->getAttribute('data-instgrm-permalink');
-
-            // Skip empty URLs
-            if(empty($url)) {
-                continue;
-            }
-
-            // Add /embed to URL
-            $url_parsed = parse_url($url);
-            if($url_parsed === false) {
-                continue;
-            }
-            $url = $url_parsed['scheme'] . "://" . $url_parsed['host'] . str_replace("//", "/", $url_parsed['path'] . "/embed") . "?" . $url_parsed['query'];
-
-            // Get width and height
-            $width = '100%';
-            $height = '650';
-
-            // Create a new paragraph, and insert the iframe shortcode
-            $embed_shortcode = $dom->createElement('p');
-            $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
-
-            // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
-            $instagram->parentNode->replaceChild($embed_shortcode, $instagram);
-        }
-
-        // Find iFrames, and turn them into [restful_syndication_iframe] shortcodes
-        $iframes = $dom->getElementsByTagName('iframe');
-
-        foreach($iframes as $iframeKey => $iframe) {
-
-            // Skip iframes without src field
-            if(!$iframe->hasAttribute('src')) {
-                continue;
-            }
-
-            // Get the original iFrame src URL
-            $url = $iframe->getAttribute('src');
-
-            // Skip empty URLs
-            if(empty($url)) {
-                continue;
-            }
-
-            // Get width and height
-            $width = '100%';
-            $height = '300';
-            if($iframe->hasAttribute('height')) {
-                $height = $iframe->getAttribute('height');
-            }
-
-            // Create a new paragraph, and insert the iframe shortcode
-            $embed_shortcode = $dom->createElement('p');
-            $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
-
-            // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
-            $iframe->parentNode->replaceChild($embed_shortcode, $iframe);
-        }
-
-        $html = $dom->saveHTML();
-        $html = str_replace('<?xml encoding="utf-8" ?>', '', $html);
 
         // Find local matching categories, or create missing ones
         $categories = array();
@@ -774,7 +788,7 @@ class RESTfulSyndication {
 
         $options = get_option($this->settings_prefix . 'settings');
 
-        if($_POST['restful_push_key'] !== $options['remote_push_key'] || strlen($options['remote_push_key']) <= 31) {
+        if($_POST['restful_push_key'] !== $options['remote_push_key'] || strlen($options['remote_push_key']) < 31) {
             return array('error' => 'Authentication failure');
         }
 
@@ -821,6 +835,39 @@ class RESTfulSyndication {
         $post_id = $this->syndicate_one($payload, true, $force_publish, true, $post_status, true);
 
         return array("post_id" => $post_id);
+    }
+
+    public function rest_api_raw_post_content() {
+        // Adds the raw post content (block content) to the REST API endpoint
+        // This is protected by the remote_push_key secret
+
+        $options = get_option($this->settings_prefix . 'settings');
+
+        // Check permissions
+        if(!isset($_GET['restful_push_auth_key']) || $_GET['restful_push_auth_key'] !== $options['remote_push_key'] || strlen($options['remote_push_key']) < 31) {
+            return;
+        }
+
+        if(!function_exists('use_block_editor_for_post_type')) {
+            require ABSPATH . 'wp-admin/includes/post.php';
+        }
+
+        // Surface all Gutenberg blocks in the WordPress REST API
+        $post_types = get_post_types_by_support(array('editor'));
+
+        foreach($post_types as $post_type) {
+            if(use_block_editor_for_post_type($post_type)) {
+                register_rest_field(
+                    $post_type,
+                    'content_raw',
+                    [
+                        'get_callback' => function (array $post) {
+                            return $post['content']['raw'];
+                        },
+                    ]
+                );
+            }
+        }
     }
 
     private function clean_media($days, $post_type) {
