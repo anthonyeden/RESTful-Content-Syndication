@@ -1,9 +1,9 @@
 === Plugin Name ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
-Requires at least: 5.9.5
-Tested up to: 6.2
-Requires PHP: 7.3.0
+Requires at least: 6.0.0
+Tested up to: 6.7
+Requires PHP: 7.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,12 @@ Commercial support is available from Media Realm (for a fee). Email us here: htt
 You may be able to sponsor feature development. Email us here with your feature request: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.5.0 =
+
+* Content Push: Allow accepting post status & schedule date fields from source site
+* Content Push: Expose the Raw Content (Blocks Markup) via the API when doing a Content Push
+* Content Raw Field: Add option to expose this field in the API to unauthenticated users
 
 = 1.4.2 =
 
