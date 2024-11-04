@@ -92,6 +92,10 @@ class RESTfulSyndication {
             "title" => "Remote Content Push - Secure Key",
             "type" => "readonly",
         ),
+        "content_raw_unauth" => array(
+            "title" => "Always expose Raw Block Markup for Unauthenticated Users (this could pose a security risk)",
+            "type" => "checkbox",
+        ),
         "remote_push_domains" => array(
             "title" => "Remote Content Push - Allowed Domains (one per line)",
             "type" => "textarea",
@@ -843,8 +847,19 @@ class RESTfulSyndication {
 
         $options = get_option($this->settings_prefix . 'settings');
 
-        // Check permissions
-        if(!isset($_GET['restful_push_auth_key']) || $_GET['restful_push_auth_key'] !== $options['remote_push_key'] || strlen($options['remote_push_key']) < 31) {
+        $enable = false;
+
+        if(isset($options['content_raw_unauth']) && $options['content_raw_unauth'] == "true") {
+            // Always expose the raw block markup for Posts
+            $enable = true;
+
+        } else if(isset($_GET['restful_push_auth_key']) && $_GET['restful_push_auth_key'] === $options['remote_push_key'] && strlen($options['remote_push_key']) > 30) {
+            // Check permissions - Push Auth (GET Param)
+            $enable = true;
+
+        }
+
+        if($enable === false) {
             return;
         }
 
