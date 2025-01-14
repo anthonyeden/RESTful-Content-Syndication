@@ -1,6 +1,7 @@
 === RESTful Content Syndication ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest
+Stable Tag: 1.5.0
 Requires at least: 6.0.0
 Tested up to: 6.7.1
 Requires PHP: 7.4.0
