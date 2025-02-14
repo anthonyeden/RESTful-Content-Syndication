@@ -105,6 +105,9 @@ class RESTfulSyndication {
 
     public $errors_logged = array();
 
+    private $push_remote_auth_key = null;
+    private $push_remote_domain = null;
+
     public function __construct() {
         add_action('admin_menu', array($this, 'admin_menu'));
         add_action('admin_init', array($this, 'settings_init'));
@@ -319,6 +322,18 @@ class RESTfulSyndication {
             );
         } else {
             $headers = array();
+        }
+
+        if($full === true && $this->push_remote_domain !== null && $this->push_remote_auth_key !== null && strpos($url, "restful_push_auth_key=") !== false) {
+            // Add the Push Auth Key back to the URL as a parameter for subsequent calls
+            // This is needed for taxonomies, authors, images, etc.
+
+            $query = parse_url($url, PHP_URL_QUERY);
+            if ($query) {
+                $url .= '&restful_push_auth_key=' . urlencode($this->push_remote_auth_key);
+            } else {
+                $url .= '?restful_push_auth_key=' . urlencode($this->push_remote_auth_key);
+            }
         }
 
         $response = wp_remote_get(
@@ -813,6 +828,8 @@ class RESTfulSyndication {
         $domains = explode("\n", $options['remote_push_domains']);
         $supplied_url_info = parse_url($_POST['restful_push_url']);
         $supplied_domain = $supplied_url_info['host'];
+        $query_string =  $supplied_url_info['query'];
+        parse_str($query_string, $query_string_parsed);
 
         foreach($domains as $key => $domain) {
             $domains[$key] = trim($domain);
@@ -820,6 +837,11 @@ class RESTfulSyndication {
 
         if(!in_array($supplied_domain, $domains)) {
             return array('error' => 'Could not validate domain');
+        }
+
+        if(isset($query_string_parsed['restful_push_auth_key'])) {
+            $this->push_remote_auth_key = $query_string_parsed['restful_push_auth_key'];
+            $this->push_remote_domain = $supplied_domain;
         }
 
         // Request data
