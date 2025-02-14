@@ -826,7 +826,7 @@ class RESTfulSyndication {
         $payload = $this->rest_fetch($_POST['restful_push_url'], true);
 
         if(empty($payload) || $payload == null) {
-            return array("error" => 'Failed to fetch post data from API', "errors" => $errors_logged);
+            return array("error" => 'Failed to fetch post data from API', "errors" => $this->errors_logged);
         }
 
         $post_status = false;
