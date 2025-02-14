@@ -843,7 +843,7 @@ class RESTfulSyndication {
         // Process data
         $post_id = $this->syndicate_one($payload, true, false, true, $post_status, true);
 
-        return array("post_id" => $post_id);
+        return array("post_id" => $post_id, "errors" => $this->errors_logged);
     }
 
     public function rest_api_raw_post_content() {
