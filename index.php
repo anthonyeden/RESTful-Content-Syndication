@@ -324,7 +324,7 @@ class RESTfulSyndication {
             $headers = array();
         }
 
-        if($full === true && $this->push_remote_domain !== null && $this->push_remote_auth_key !== null && strpos($url, "restful_push_auth_key=") !== false) {
+        if($full === true && $this->push_remote_domain !== null && $this->push_remote_auth_key !== null && strpos($url, "restful_push_auth_key=") === false) {
             // Add the Push Auth Key back to the URL as a parameter for subsequent calls
             // This is needed for taxonomies, authors, images, etc.
 
@@ -349,7 +349,8 @@ class RESTfulSyndication {
             return;
         }
 
-        $data = json_decode(wp_remote_retrieve_body($response), true);
+        $response_body = wp_remote_retrieve_body($response);
+        $data = json_decode($response_body, true);
 
         if($data == false) {
             $this->log("rest_fetch() - JSON not decoded when fetching ".$url.".");
