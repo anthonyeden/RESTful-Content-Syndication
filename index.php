@@ -404,6 +404,11 @@ class RESTfulSyndication {
         // Setting this to 0 creates a new post.
         $existing_post_id = 0;
 
+        if(!is_array($post)) {
+            $this->log("syndicate_one() - post is not an array. Failing.");
+            return;
+        }
+
         // Have we already ingested this post?
         if($allow_overwrite === true && $this->post_guid_exists($post['guid']['rendered']) !== null) {
             $existing_post_id = $this->post_guid_exists($post['guid']['rendered']);
