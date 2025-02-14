@@ -351,6 +351,10 @@ class RESTfulSyndication {
 
         $data = json_decode(wp_remote_retrieve_body($response), true);
 
+        if($data == false) {
+            $this->log("rest_fetch() - JSON not decoded when fetching ".$url.".");
+        }
+
         return $data;
     }
 
@@ -430,6 +434,7 @@ class RESTfulSyndication {
 
         } else if($this->post_guid_exists($post['guid']['rendered']) !== null) {
             // Already exists on this site - skip over this post
+            $this->log("syndicate_one() - Post GUID already exists. Skipping.");
             return;
         }
 
@@ -437,6 +442,7 @@ class RESTfulSyndication {
         if(!$allow_old) {
             if(isset($options['earliest_post_date']) && strtotime($options['earliest_post_date']) !== false && strtotime($post['date']) <= strtotime($options['earliest_post_date'])) {
                 // This post is earlier than the specified start date
+                $this->log("syndicate_one() - Post is earlier than earliest post cutoff date. Skipping.");
                 return;
             }
         }
