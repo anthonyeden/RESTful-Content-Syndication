@@ -841,7 +841,7 @@ class RESTfulSyndication {
         }
 
         // Process data
-        $post_id = $this->syndicate_one($payload, true, $force_publish, true, $post_status, true);
+        $post_id = $this->syndicate_one($payload, true, false, true, $post_status, true);
 
         return array("post_id" => $post_id);
     }
