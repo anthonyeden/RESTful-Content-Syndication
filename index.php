@@ -481,8 +481,15 @@ class RESTfulSyndication {
             $html = str_replace("<![endif]-->", "", $html);
 
             // Parse the HTML
-            $dom = new domDocument;
-            $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+            if(class_exists('\Dom\HTMLDocument')) {
+                // PHP 8.4+
+                $dom = \Dom\HTMLDocument::createFromString($html, LIBXML_HTML_NOIMPLIED|LIBXML_NOERROR);
+                $dom->strictErrorChecking = false;
+            } else {
+                $dom = new domDocument;
+                $html = str_replace("<hr>", "<hr />", $html); // Workaround for certain libxml versions breaking on this unclosed tag
+                $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD);
+            }
 
             // Find and download any embedded images found in the HTML
             $images = $dom->getElementsByTagName('img');
@@ -538,7 +545,7 @@ class RESTfulSyndication {
                 // Create a new paragraph, and insert the audio shortcode
                 $audio_shortcode = $dom->createElement('div');
                 $audio_shortcode->setAttribute('class', 'audio-filter');
-                $audio_shortcode->nodeValue = '[audio src="'.esc_url($url).'"]';
+                $audio_shortcode->textContent = '[audio src="'.esc_url($url).'"]';
 
                 // Replace the original <audio> tag with this new <div class="audio-filter">[audio]</div> arrangement
                 $audio->parentNode->replaceChild($audio_shortcode, $audio);
@@ -565,7 +572,7 @@ class RESTfulSyndication {
                     // Create a new paragraph, and insert the audio shortcode
                     $embed_shortcode = $dom->createElement('div');
                     $embed_shortcode->setAttribute('class', 'video-filter');
-                    $embed_shortcode->nodeValue = '[embed]'.esc_url($url_new).'[/embed]';
+                    $embed_shortcode->textContent = '[embed]'.esc_url($url_new).'[/embed]';
 
                     // Replace the original <div class="embed_youtube"> tag with this new <div>[embed]url[/embed]</div> arrangement
                     $youtube->parentNode->replaceChild($embed_shortcode, $youtube);
@@ -602,7 +609,7 @@ class RESTfulSyndication {
 
                 // Create a new paragraph, and insert the iframe shortcode
                 $embed_shortcode = $dom->createElement('p');
-                $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+                $embed_shortcode->textContent = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
 
                 // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
                 $instagram->parentNode->replaceChild($embed_shortcode, $instagram);
@@ -635,7 +642,7 @@ class RESTfulSyndication {
 
                 // Create a new paragraph, and insert the iframe shortcode
                 $embed_shortcode = $dom->createElement('p');
-                $embed_shortcode->nodeValue = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
+                $embed_shortcode->textContent = '[restful_syndication_iframe src="'.esc_url($url).'" width="'.esc_attr($width).'" height="'.esc_attr($height).'"]';
 
                 // Replace the original <iframe> tag with this new <p>[restful_syndication_iframe src="url"]</p> arrangement
                 $iframe->parentNode->replaceChild($embed_shortcode, $iframe);
