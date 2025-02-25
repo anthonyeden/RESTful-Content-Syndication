@@ -796,8 +796,10 @@ class RESTfulSyndication {
                 $featured_attachment_id = $this->ingest_image($attachment['source_url'], $post_id);
                 set_post_thumbnail($post_id, $featured_attachment_id);
             } else {
-                $this->log("Attachment full image not found: " . $api_url);
+                $this->log("Attachment full image not found: " . $api_url . " - " . print_r($attachment, true));
             }
+        } else {
+            $this->log("Featured Media Link not found. " . $post_id);
         }
 
         if($post_id > 0) {
