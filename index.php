@@ -875,6 +875,7 @@ class RESTfulSyndication {
 
             if($_POST['post_status'] == 'future' && isset($_POST['schedule_date'])) {
                 $payload['date'] = wp_date('Y-m-d H:i:s', $this->wp_strtotime($_POST['schedule_date']));
+                $payload['date_gmt'] = date('Y-m-d H:i:s', $this->wp_strtotime($_POST['schedule_date']));
             }
         }
 
