@@ -498,8 +498,10 @@ class RESTfulSyndication {
             foreach($images as $imgKey => $img) {
                 // Download the image and attach it
                 $url = $img->getAttribute('src');
-                $attachment_id = $this->ingest_image($url);
-                
+                $classes = $img->getAttribute('class');
+                $image_id = $this->get_image_id_from_classes($classes);
+                $attachment_id = $this->ingest_image($url, null, null, $image_id, $post);
+
                 // Update the SRC in the HTML
                 $url_new = wp_get_attachment_image_src($attachment_id, $options['image_embed_size']);
                 $img->setAttribute('src', $url_new[0]);
@@ -790,10 +792,10 @@ class RESTfulSyndication {
             $attachment = $this->rest_fetch($api_url, true);
 
             if(isset($attachment['media_details']['sizes']['full']['source_url'])) {
-                $featured_attachment_id = $this->ingest_image($attachment['media_details']['sizes']['full']['source_url'], $post_id);
+                $featured_attachment_id = $this->ingest_image($attachment['media_details']['sizes']['full']['source_url'], $post_id, $attachment);
                 set_post_thumbnail($post_id, $featured_attachment_id);
             } elseif(isset($attachment['source_url'])) {
-                $featured_attachment_id = $this->ingest_image($attachment['source_url'], $post_id);
+                $featured_attachment_id = $this->ingest_image($attachment['source_url'], $post_id, $attachment);
                 set_post_thumbnail($post_id, $featured_attachment_id);
             } else {
                 $this->log("Attachment full image not found: " . $api_url . " - " . print_r($attachment, true));
@@ -1082,10 +1084,22 @@ class RESTfulSyndication {
         );
     }
 
-    private function ingest_image($url, $parent_post_id = null) {
+    private function ingest_image($url, $parent_post_id = null, $attachment_rest_data = null, $original_attachment_id = null, $post_rest_data = null) {
         // Download a file from a URL, and add it to the media library
 
         require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        // Lookup existing file by meta field
+        $search_existing = get_posts(array(
+            'post_type'      => 'attachment',
+            'meta_key'       => 'restfulsyndication_original_url',
+            'meta_value'     => $url,
+            'posts_per_page' => 1,
+        ));
+
+        if(is_array($search_existing) && count($search_existing) > 0 && isset($search_existing[0]->ID)) {
+            return $search_existing[0]->ID;
+        }
 
         $filename = basename($url);
         $response = wp_remote_get($url,
@@ -1112,18 +1126,6 @@ class RESTfulSyndication {
             $file = $upload_dir['path'] . '/' . $filename;
         } else {
             $file = $upload_dir['basedir'] . '/' . $filename;
-        }
-
-        // Lookup existing file by meta field
-        $search_existing = get_posts(array(
-            'post_type'      => 'attachment',
-            'meta_key'       => 'restfulsyndication_original_url',
-            'meta_value'     => $url,
-            'posts_per_page' => 1,
-        ));
-
-        if(is_array($search_existing) && count($search_existing) > 0 && isset($search_existing[0]->ID)) {
-            return $search_existing[0]->ID;
         }
 
         if(file_exists($file)) {
@@ -1157,14 +1159,74 @@ class RESTfulSyndication {
 
             update_post_meta($attach_id, 'restfulsyndication_original_url', $url);
 
+            // Fetch rest data for image
+            // We will want to save some metadata
+            if(empty($attachment_rest_data)) {
+                if(!empty($original_attachment_id) && !empty($post_rest_data)) {
+                    if(isset($post_rest_data['_links']['self'][0]['href'])) {
+                        $post_rest_url = $post_rest_data['_links']['self'][0]['href'];
+                        $attachment_rest_url = str_replace("wp/v2/posts/", "wp/v2/media/", $post_rest_url);
+                        $attachment_rest_url = substr($attachment_rest_url, 0, strpos($attachment_rest_url, "/media/") + 7) . $original_attachment_id;
+                        $attachment_rest_data = $this->rest_fetch($attachment_rest_url, true);
+                    }
+                }
+            }
+
+            if(isset($attachment_rest_data['alt_text'])) {
+                update_post_meta($attach_id, '_wp_attachment_image_alt', $attachment_rest_data['alt_text']);
+            }
+
+            if(isset($attachment_rest_data['title']['rendered'])) {
+                $update = array(
+                    'ID' => $attach_id,
+                    'post_title' => strip_tags($attachment_rest_data['title']['rendered']),
+                );
+                wp_update_post($update);
+            }
+
+            if(isset($attachment_rest_data['caption']['rendered'])) {
+                $update = array(
+                    'ID' => $attach_id,
+                    'post_excerpt' => strip_tags($attachment_rest_data['caption']['rendered']),
+                );
+                wp_update_post($update);
+            }
+
+            if(isset($attachment_rest_data['description']['rendered'])) {
+                $update = array(
+                    'ID' => $attach_id,
+                    'post_content' => strip_tags($attachment_rest_data['description']['rendered']),
+                );
+                wp_update_post($update);
+            }
+
+            // Image Credit fields
+            $fields = array(
+                'media_credit_text',
+                'media_credit_url',
+                'media_credit_supplied',
+                'supplied_notes',
+                'media_credit_original',
+                'media_credit_ai_generated',
+            );
+
+            foreach($fields as $field) {
+                if(isset($attachment_rest_data['image_credit'][$field])) {
+                    if($attachment_rest_data['image_credit'][$field] === true) {
+                        $attachment_rest_data['image_credit'][$field] = '1';
+                    } elseif($attachment_rest_data['image_credit'][$field] === false) {
+                        $attachment_rest_data['image_credit'][$field] = '0';
+                    }
+                    update_post_meta($attach_id, $field, sanitize_text_field($attachment_rest_data['image_credit'][$field]));
+                }
+            }
+
             if(!file_exists($file)) {
                 $this->log("Image doesn't exist after processing " . $file);
                 return null;
             }
 
         }
-
-        
 
         return $attach_id;
     }
@@ -1211,6 +1273,14 @@ class RESTfulSyndication {
         }
 
         return '<iframe src="'.esc_url($a['src']).'" width="'.esc_attr($a['width']).'" height="'.esc_attr($a['height']).'" border="0"></iframe>';
+    }
+
+    private function get_image_id_from_classes($class_string) {
+        // If given a string of classes, return just the Image ID (if it exists)
+        if(preg_match('/wp-image-(\d+)/', $class_string, $matches)) {
+            return intval($matches[1]);
+        }
+        return null;
     }
 
     private function random_str($length, $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+`~') {
