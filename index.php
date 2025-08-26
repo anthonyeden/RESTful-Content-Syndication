@@ -316,12 +316,14 @@ class RESTfulSyndication {
             return;
         }
 
+        $headers = array(
+            'X-RESTful-Syndication-Version' => get_file_data(__FILE__, array('Version' => 'Version'), false)['Version'],
+        );
+
+        $headers = apply_filters('restful_syndication_api_headers', $headers);
+
         if(!empty($options['auth_username']) && !empty($options['auth_password'])) {
-            $headers = array(
-                'Authorization' => 'Basic ' . base64_encode($options['auth_username'] . ':' . $options['auth_password']),
-            );
-        } else {
-            $headers = array();
+            $headers['Authorization'] = 'Basic ' . base64_encode($options['auth_username'] . ':' . $options['auth_password']);
         }
 
         if($full === true && $this->push_remote_domain !== null && $this->push_remote_auth_key !== null && strpos($url, "restful_push_auth_key=") === false) {
