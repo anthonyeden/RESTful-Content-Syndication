@@ -738,6 +738,35 @@ class RESTfulSyndication {
             }
         }
 
+        // Find local matching author taxonomy
+        $author_terms = array();
+
+        if(isset($post['_links']['wp:term']) && taxonomy_exists('author')) {
+            foreach($post['_links']['wp:term'] as $term_link) {
+                if($term_link['taxonomy'] == 'author') {
+                    $term_data_all = $this->rest_fetch($term_link['href'], true);
+
+                    foreach($term_data_all as $term_data) {
+                        if(isset($term_data['name']) && !empty($term_data['name'])) {
+                            $term = get_term_by('name', $term_data['name'], 'author');
+
+                            if($term !== false) {
+                                // Term already exists
+                                $author_terms[] = $term->term_id;
+                            } else {
+                                // Create the author taxonomy term
+                                $term = wp_insert_term($term_data['name'], 'author');
+
+                                if(is_array($term)) {
+                                    $author_terms[] = $term['term_id'];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Try and match to a local author
         $author = $options['default_author'];
         if($match_author === true && is_numeric($post['author']) && isset($post['_links']['author'][0])) {
@@ -802,6 +831,11 @@ class RESTfulSyndication {
                 '_yoast_wpseo_meta-robots-noindex' => $post['yoast_meta']['yoast_wpseo_noindex'],
             )
         ), false);
+
+        if($post_id > 0 && count($author_terms) > 0) {
+            // Set author taxonomy terms
+            wp_set_object_terms($post_id, $author_terms, 'author');
+        }
 
         if($post_id > 0 && isset($post['_links']['wp:featuredmedia'][0]['href'])) {
             // Download and attach featured image
