@@ -124,6 +124,22 @@ class RESTfulSyndication {
                     'callback' => array($this, 'push_receive'),
             ));
         });
+
+        if(is_plugin_active('advanced-custom-fields/acf.php') || is_plugin_active('advanced-custom-fields-pro/acf.php')) {
+            if(apply_filters('restful_syndication_allow_image_credit_fields', true) === true) {
+                $this->settings['fields_image_credits'] = array(
+                    "title" => "Enable Image Credit Fields",
+                    "type" => "checkbox",
+                );
+
+                $options = get_option($this->settings_prefix . 'settings');
+                if($options['fields_image_credits'] == "true") {
+                    add_action('acf/include_fields',                    array($this, 'fields_image_credits_acf'));
+                    add_filter('restful_syndication_api_headers',       array($this, 'fields_image_credits_api_header'));
+                }
+            }
+            
+        }
     }
 
     public function activate() {
@@ -1283,6 +1299,181 @@ class RESTfulSyndication {
             return intval($matches[1]);
         }
         return null;
+    }
+
+    public function fields_image_credits_acf() {
+        if (!function_exists('acf_add_local_field_group')) {
+            return;
+        }
+
+        acf_add_local_field_group(array(
+            'key' => 'group_683a92f3ef691',
+            'title' => 'Media Source',
+            'fields' => array(
+                array(
+                    'key' => 'field_683a92f4ab28d',
+                    'label' => 'Media Credit',
+                    'name' => 'media_credit_text',
+                    'aria-label' => '',
+                    'type' => 'text',
+                    'instructions' => 'Store the name of the photographer or stock photo website here.',
+                    'required' => 0,
+                    'conditional_logic' => 0,
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 1,
+                    'default_value' => '',
+                    'maxlength' => '',
+                    'allow_in_bindings' => 0,
+                    'placeholder' => '',
+                    'prepend' => '',
+                    'append' => '',
+                ),
+                array(
+                    'key' => 'field_683a9338ab28e',
+                    'label' => 'Media Credit URL',
+                    'name' => 'media_credit_url',
+                    'aria-label' => '',
+                    'type' => 'url',
+                    'instructions' => 'Paste the link to the original media source.',
+                    'required' => 0,
+                    'conditional_logic' => 0,
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 1,
+                    'default_value' => '',
+                    'allow_in_bindings' => 0,
+                    'placeholder' => '',
+                ),
+                array(
+                    'key' => 'field_683d2a1832a6d',
+                    'label' => 'Supplied?',
+                    'name' => 'media_credit_supplied',
+                    'aria-label' => '',
+                    'type' => 'true_false',
+                    'instructions' => 'If this image has been supplied with permission to use it on your website, tick this box. This is sometimes the case with press releases. However, you should still ensure you have permission to use it from the original creator or photographer. If you downloaded this photo from a stock website, do not tick this box.',
+                    'required' => 0,
+                    'conditional_logic' => 0,
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 1,
+                    'message' => '',
+                    'default_value' => 0,
+                    'allow_in_bindings' => 0,
+                    'ui' => 0,
+                    'ui_on_text' => '',
+                    'ui_off_text' => '',
+                ),
+                array(
+                    'key' => 'field_6853aa7b51fdd',
+                    'label' => 'Supplied Notes',
+                    'name' => 'supplied_notes',
+                    'aria-label' => '',
+                    'type' => 'textarea',
+                    'instructions' => 'Please note who who gave you permission to use this image. This is an internal field and won\'t be displayed to end-users of your website.',
+                    'required' => 0,
+                    'conditional_logic' => array(
+                        array(
+                            array(
+                                'field' => 'field_683d2a1832a6d',
+                                'operator' => '==',
+                                'value' => '1',
+                            ),
+                        ),
+                    ),
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 0,
+                    'default_value' => '',
+                    'maxlength' => '',
+                    'allow_in_bindings' => 0,
+                    'rows' => '',
+                    'placeholder' => '',
+                    'new_lines' => '',
+                ),
+                array(
+                    'key' => 'field_683d2af832a6e',
+                    'label' => 'Original?',
+                    'name' => 'media_credit_original',
+                    'aria-label' => '',
+                    'type' => 'true_false',
+                    'instructions' => 'If you have created this image yourself, tick this box.',
+                    'required' => 0,
+                    'conditional_logic' => 0,
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 1,
+                    'message' => '',
+                    'default_value' => 0,
+                    'allow_in_bindings' => 0,
+                    'ui' => 0,
+                    'ui_on_text' => '',
+                    'ui_off_text' => '',
+                ),
+                array(
+                    'key' => 'field_683d2b2732a6f',
+                    'label' => 'AI Generated?',
+                    'name' => 'media_credit_ai_generated',
+                    'aria-label' => '',
+                    'type' => 'true_false',
+                    'instructions' => 'If this image was created with Artificial Intelligence (AI) tools, tick this box. Usage of AI media creation tools is still a grey area, and caution should be exercised.',
+                    'required' => 0,
+                    'conditional_logic' => 0,
+                    'wrapper' => array(
+                        'width' => '',
+                        'class' => '',
+                        'id' => '',
+                    ),
+                    'relevanssi_exclude' => 1,
+                    'message' => '',
+                    'default_value' => 0,
+                    'allow_in_bindings' => 0,
+                    'ui' => 0,
+                    'ui_on_text' => '',
+                    'ui_off_text' => '',
+                ),
+            ),
+            'location' => array(
+                array(
+                    array(
+                        'param' => 'attachment',
+                        'operator' => '==',
+                        'value' => 'all',
+                    ),
+                ),
+            ),
+            'menu_order' => 0,
+            'position' => 'normal',
+            'style' => 'seamless',
+            'label_placement' => 'top',
+            'instruction_placement' => 'label',
+            'hide_on_screen' => '',
+            'active' => true,
+            'description' => '',
+            'show_in_rest' => 0,
+        ));
+    }
+
+    public function fields_image_credits_api_header($headers) {
+        // Header to disable embedding image credits in 
+        $headers['X-RESTful-Syndication-Hide-Image-Credits'] = 'True';
+
+        return $headers;
     }
 
     private function random_str($length, $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()-=+`~') {
