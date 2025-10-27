@@ -1,9 +1,9 @@
 === RESTful Content Syndication ===
 Contributors: anthonyeden
-Tags: syndication, rest, wp-rest
-Stable Tag: 1.5.0
+Tags: syndication, rest, wp-rest, wp-json, json
+Stable Tag: 1.6.0
 Requires at least: 6.0.0
-Tested up to: 6.7.1
+Tested up to: 6.8.3
 Requires PHP: 7.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,18 @@ Commercial support is available from Media Realm (for a fee). Email us here: htt
 You may be able to sponsor feature development. Email us here with your feature request: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.6.0 =
+
+* Image Ingest: Import meta fields where available (title, caption, alt text)
+* Image Credits: Add option to enable these new media credit fields via the plugin. This option is only available if you have the Advanced Custom Fields plugin active on your site.
+* Add support for Author taxonomy
+* Content Push: Return additional fields upon successful push
+* Content Push: GMT date should align with local date
+* Content Push: Provide auth key back to source site for subsequent resource pulls
+* Use \Dom\HTMLDocument where available (in PHP 8.4)
+* Add new filter: restful_syndication_api_headers
+* Security: Ensure only image files are downloaded and stored locally (thanks Wordfence/kr0d for responsibly disclosing)
 
 = 1.5.0 =
 
