@@ -1154,6 +1154,15 @@ class RESTfulSyndication {
         }
 
         $filename = basename($url);
+
+        // Check extension - uses get_allowed_mime_types() for mime type list
+        $check_filetype = wp_check_filetype($filename);
+
+        if($check_filetype['type'] == false) {
+            $this->log("Stopped download of image due to invalid file type: " . $url);
+            return null;
+        }
+
         $response = wp_remote_get($url,
             array(
                 "timeout" => 30,
@@ -1195,10 +1204,17 @@ class RESTfulSyndication {
                 return null;
             }
 
-            $wp_filetype = wp_check_filetype($filename, null);
+            // Check if file is an image
+            $check_filetype_and_ext = wp_check_filetype_and_ext($file, $filename);
+
+            if($check_filetype_and_ext['type'] == false) {
+                $this->log("Downloaded file is not a valid image: " . $file . ". Deleting file from disk.");
+                unlink($file);
+                return null;
+            }
 
             $attachment = array(
-                'post_mime_type' => $wp_filetype['type'],
+                'post_mime_type' => $check_filetype_and_ext['type'],
                 'post_title' => sanitize_file_name($filename),
                 'post_content' => '',
                 'post_status' => 'inherit'
