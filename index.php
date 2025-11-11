@@ -133,7 +133,7 @@ class RESTfulSyndication {
                 );
 
                 $options = get_option($this->settings_prefix . 'settings');
-                if($options['fields_image_credits'] == "true") {
+                if(isset($options['fields_image_credits']) && $options['fields_image_credits'] == "true") {
                     add_action('acf/include_fields',                    array($this, 'fields_image_credits_acf'));
                     add_filter('restful_syndication_api_headers',       array($this, 'fields_image_credits_api_header'));
                 }
