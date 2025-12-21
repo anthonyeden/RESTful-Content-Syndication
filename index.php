@@ -416,22 +416,22 @@ class RESTfulSyndication {
         if($count > 0) {
             $runs = get_option($this->settings_prefix . 'history', array());
             $runs[time()] = $count;
-            update_option($this->settings_prefix . 'history', $runs);
+            update_option($this->settings_prefix . 'history', $runs, false);
         }
 
         if($count_delete > 0) {
             $runs = get_option($this->settings_prefix . 'history_delete', array());
             $runs[time()] = $count_delete;
-            update_option($this->settings_prefix . 'history_delete', $runs);
+            update_option($this->settings_prefix . 'history_delete', $runs, false);
         }
 
         if($count_delete_media > 0) {
             $runs = get_option($this->settings_prefix . 'history_delete_media', array());
             $runs[time()] = $count_delete_media;
-            update_option($this->settings_prefix . 'history_delete_media', $runs);
+            update_option($this->settings_prefix . 'history_delete_media', $runs, false);
         }
 
-        update_option($this->settings_prefix . 'last_attempt', time());
+        update_option($this->settings_prefix . 'last_attempt', time(), false);
     }
 
     private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false, $post_status = false, $allow_overwrite = false) {
