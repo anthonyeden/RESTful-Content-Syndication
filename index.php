@@ -125,7 +125,7 @@ class RESTfulSyndication {
             ));
         });
 
-        if(is_plugin_active('advanced-custom-fields/acf.php') || is_plugin_active('advanced-custom-fields-pro/acf.php')) {
+        if(function_exists('is_plugin_active') && (is_plugin_active('advanced-custom-fields/acf.php') || is_plugin_active('advanced-custom-fields-pro/acf.php'))) {
             if(apply_filters('restful_syndication_allow_image_credit_fields', true) === true) {
                 $this->settings['fields_image_credits'] = array(
                     "title" => "Enable Image Credit Fields",
