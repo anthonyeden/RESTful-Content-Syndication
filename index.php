@@ -88,6 +88,10 @@ class RESTfulSyndication {
             "type" => "text",
             "default" => "",
         ),
+        "ignore_posts_containing" => array(
+            "title" => "Ignore Incoming Posts Containing This Text (one entry per line)",
+            "type" => "textarea",
+        ),
         "remote_push_key" => array(
             "title" => "Remote Content Push - Secure Key",
             "type" => "readonly",
@@ -490,6 +494,24 @@ class RESTfulSyndication {
         if(!isset($content)) {
             $this->log("Post body is empty - skipping. " . $post['guid']['rendered']);
             return;
+        }
+
+        if(isset($options['ignore_posts_containing']) && !empty($options['ignore_posts_containing'])) {
+            $ignore_posts_containing = explode("\n", $options['ignore_posts_containing']);
+
+            foreach($ignore_posts_containing as $ignore_text) {
+                $ignore_text = trim($ignore_text);
+
+                if(!empty($ignore_text) && stripos($post['title']['rendered'], $ignore_text) !== false) {
+                    $this->log("Post title contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
+                    return;
+                }
+
+                if(!empty($ignore_text) && stripos($content, $ignore_text) !== false) {
+                    $this->log("Post content contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
+                    return;
+                }
+            }
         }
 
         if($content_type == 'rendered') {
