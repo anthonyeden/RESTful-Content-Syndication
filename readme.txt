@@ -1,9 +1,9 @@
 === RESTful Content Syndication ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest, wp-json, json
-Stable Tag: 1.6.1
+Stable Tag: 1.7.0
 Requires at least: 6.0.0
-Tested up to: 6.8.3
+Tested up to: 6.9.0
 Requires PHP: 7.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -58,6 +58,12 @@ Commercial support is available from Media Realm (for a fee). Email us here: htt
 You may be able to sponsor feature development. Email us here with your feature request: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.7.0 =
+
+* New Option: Ignore Incoming Posts Containing Certain Text
+* Change: Disable WP Options Autoload on history fields
+* Fix: Don't fail if 'is_plugin_active' function isn't loaded
 
 = 1.6.1 =
 
