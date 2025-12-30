@@ -1,7 +1,7 @@
 === RESTful Content Syndication ===
 Contributors: anthonyeden
 Tags: syndication, rest, wp-rest, wp-json, json
-Stable Tag: 1.7.0
+Stable Tag: 1.7.1
 Requires at least: 6.0.0
 Tested up to: 6.9.0
 Requires PHP: 7.4.0
@@ -58,6 +58,11 @@ Commercial support is available from Media Realm (for a fee). Email us here: htt
 You may be able to sponsor feature development. Email us here with your feature request: https://mediarealm.com.au/contact/
 
 == Changelog ==
+
+= 1.7.1 =
+
+* Display logged errors when running manually via GUI
+* Add additional Author fields
 
 = 1.7.0 =
 
