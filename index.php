@@ -153,10 +153,10 @@ class RESTfulSyndication {
     private function log($log)  {
         if(is_array($log) || is_object($log)) {
            error_log($this->errors_prefix . print_r($log, true));
-           $errors_logged[] = print_r($log, true);
+           $this->errors_logged[] = print_r($log, true);
         } else {
            error_log($this->errors_prefix . $log);
-           $errors_logged[] = $log;
+           $this->errors_logged[] = $log;
         }
      }
 
@@ -320,6 +320,17 @@ class RESTfulSyndication {
 
             echo "<p><strong>Attempting syndication now...</strong></p>";
             $this->syndicate();
+
+            if(count($this->errors_logged) > 0) {
+                echo '<p>Errors Logged During This Ingestion:</p>';
+                echo '<ul>';
+                foreach($this->errors_logged as $error) {
+                    echo '<li>'.esc_html($error).'</li>';
+                }
+                echo '</ul>';
+
+            }
+
             echo '<p><strong>Syndication complete!</strong></p>';
         } else {
             echo '<p class="submit"><a href="'.wp_nonce_url('?page='.$_GET['page'].'&ingestnow=true', 'restful_syndication_ingest').'" class="button button-primary">Ingest Posts Now</a></p>';
