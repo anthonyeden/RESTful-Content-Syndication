@@ -792,6 +792,36 @@ class RESTfulSyndication {
 
                                 if(is_array($term)) {
                                     $author_terms[] = $term['term_id'];
+
+                                    // Add description
+                                    if(isset($term_data['description']) && !empty($term_data['description'])) {
+                                        wp_update_term($term['term_id'], 'author', array(
+                                            'description' => $term_data['description']
+                                        ));
+                                    }
+
+                                    // Add image if available - field author_profile_image_url
+                                    if(isset($term_data['author_profile_image']) && !empty($term_data['author_profile_image'])) {
+                                        $attachment_rest_data = $this->rest_fetch($term_data['author_profile_image']['rest_url'], true);
+                                        $attachment_id = $this->ingest_image($term_data['author_profile_image']['url'], null, $attachment_rest_data, null, null);
+
+                                        if($attachment_id !== null) {
+                                            update_term_meta($term['term_id'], 'author_profile_image', $attachment_id);
+                                        }
+                                    }
+
+                                    // Add website links - ACF repeater field websites
+                                    if(isset($term_data['author_websites']) && is_array($term_data['author_websites']) && count($term_data['author_websites']) > 0 && function_exists('add_row')) {
+                                        foreach($term_data['author_websites'] as $website) {
+                                            if(filter_var($website['url'], FILTER_VALIDATE_URL) !== FALSE) {
+                                                add_row('websites', array(
+                                                    'type' => sanitize_text_field($website['type']),
+                                                    'custom_label' => sanitize_text_field($website['custom_label']),
+                                                    'url' => esc_url_raw($website['url']),
+                                                ), 'author_' . $term['term_id']);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
