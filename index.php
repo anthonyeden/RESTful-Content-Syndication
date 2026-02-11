@@ -449,7 +449,7 @@ class RESTfulSyndication {
         update_option($this->settings_prefix . 'last_attempt', time(), false);
     }
 
-    private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false, $post_status = false, $allow_overwrite = false) {
+    private function syndicate_one($post, $allow_old = false, $force_publish = false, $match_author = false, $post_status = false, $allow_overwrite = false, $push = false) {
         // Process one post
 
         $options = get_option($this->settings_prefix . 'settings');
@@ -505,24 +505,6 @@ class RESTfulSyndication {
         if(!isset($content)) {
             $this->log("Post body is empty - skipping. " . $post['guid']['rendered']);
             return;
-        }
-
-        if(isset($options['ignore_posts_containing']) && !empty($options['ignore_posts_containing'])) {
-            $ignore_posts_containing = explode("\n", $options['ignore_posts_containing']);
-
-            foreach($ignore_posts_containing as $ignore_text) {
-                $ignore_text = trim($ignore_text);
-
-                if(!empty($ignore_text) && stripos($post['title']['rendered'], $ignore_text) !== false) {
-                    $this->log("Post title contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
-                    return;
-                }
-
-                if(!empty($ignore_text) && stripos($content, $ignore_text) !== false) {
-                    $this->log("Post content contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
-                    return;
-                }
-            }
         }
 
         if($content_type == 'rendered') {
@@ -845,6 +827,37 @@ class RESTfulSyndication {
             }
         }
 
+        if(isset($options['ignore_posts_containing']) && !empty($options['ignore_posts_containing']) && $push === false) {
+            // This feature allows you to specify certain words or phrases - if these are found in the title, body, or authors of the post, the post will be skipped and not ingested.
+            // This feature is ignored for posts that are being pushed (only pull posts will process ignores)
+
+            $ignore_posts_containing = explode("\n", $options['ignore_posts_containing']);
+
+            foreach($ignore_posts_containing as $ignore_text) {
+                $ignore_text = trim($ignore_text);
+
+                if(!empty($ignore_text) && stripos($post['title']['rendered'], $ignore_text) !== false) {
+                    $this->log("Post title contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
+                    return;
+                }
+
+                if(!empty($ignore_text) && stripos($content, $ignore_text) !== false) {
+                    $this->log("Post content contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
+                    return;
+                }
+
+                foreach($author_terms as $author_term_id) {
+                    $author_term = get_term($author_term_id, 'author');
+
+                    if(!empty($ignore_text) && stripos($author_term->name, $ignore_text) !== false) {
+                        $this->log("Post author contains ignored text '" . $ignore_text . "' - skipping. " . $post['guid']['rendered']);
+                        return;
+                    }
+
+                }
+            }
+        }
+
         if(!isset($post['yoast_meta']['yoast_wpseo_metadesc']) || empty($post['yoast_meta']['yoast_wpseo_metadesc'])) {
             if(isset($post['yoast_head_json']['description']) && !empty($post['yoast_head_json']['description'])) {
                 $post['yoast_meta']['yoast_wpseo_metadesc'] = $post['yoast_head_json']['description'];
@@ -997,7 +1010,7 @@ class RESTfulSyndication {
         }
 
         // Process data
-        $post_id = $this->syndicate_one($payload, true, false, true, $post_status, true);
+        $post_id = $this->syndicate_one($payload, true, false, true, $post_status, true, true);
 
         return array(
             "post_id" => $post_id,
