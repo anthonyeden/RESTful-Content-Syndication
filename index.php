@@ -528,7 +528,12 @@ class RESTfulSyndication {
             $images = $dom->getElementsByTagName('img');
             $images_to_attach = array();
 
-            foreach($images as $imgKey => $img) {
+            $image_nodes = array();
+            foreach ($images as $node) {
+                $image_nodes[] = $node;
+            }
+
+            foreach($image_nodes as $imgKey => $img) {
                 // Download the image and attach it
                 $url = $img->getAttribute('src');
                 $classes = $img->getAttribute('class');
@@ -561,7 +566,12 @@ class RESTfulSyndication {
             // Turn <audio> tags into [audio] shortcodes
             $audios = $dom->getElementsByTagName('audio');
 
-            foreach($audios as $audioKey => $audio) {
+            $audio_nodes = array();
+            foreach ($audios as $node) {
+                $audio_nodes[] = $node;
+            }
+
+            foreach($audio_nodes as $audioKey => $audio) {
                 // Get the original audio URL
                 $audio_source = $audio->getElementsByTagName('source');
                 $url = $audio_source->item(0)->getAttribute('src');
@@ -589,7 +599,12 @@ class RESTfulSyndication {
             // Find YouTube embeds, and turn them into [embed] shortcodes
             $youtubes = $dom->getElementsByTagName('div');
 
-            foreach($youtubes as $youtubeKey => $youtube) {
+            $youtube_nodes = array();
+            foreach ($youtubes as $node) {
+                $youtube_nodes[] = $node;
+            }
+
+            foreach($youtube_nodes as $youtubeKey => $youtube) {
 
                 // Skip non-youtube divs
                 if(!$youtube->hasAttribute('class') || (strpos($youtube->getAttribute('class'), 'embed_youtube') === false && strpos($youtube->getAttribute('class'), 'video-filter') === false))
@@ -617,7 +632,12 @@ class RESTfulSyndication {
             // Find Instagram embeds, and turn them into [restful_syndication_iframe] shortcodes
             $instagrams = $dom->getElementsByTagName('blockquote');
 
-            foreach($instagrams as $instagram) {
+            $instagram_nodes = array();
+            foreach ($instagrams as $node) {
+                $instagram_nodes[] = $node;
+            }
+
+            foreach($instagram_nodes as $instagram) {
 
                 // Skip non-youtube blockquotes
                 if(!$instagram->hasAttribute('data-instgrm-permalink'))
@@ -653,7 +673,12 @@ class RESTfulSyndication {
             // Find iFrames, and turn them into [restful_syndication_iframe] shortcodes
             $iframes = $dom->getElementsByTagName('iframe');
 
-            foreach($iframes as $iframeKey => $iframe) {
+            $iframe_nodes = array();
+            foreach ($iframes as $node) {
+                $iframe_nodes[] = $node;
+            }
+
+            foreach($iframe_nodes as $iframeKey => $iframe) {
 
                 // Skip iframes without src field
                 if(!$iframe->hasAttribute('src')) {
