@@ -807,6 +807,11 @@ class RESTfulSyndication {
                                         ));
                                     }
 
+                                    // Add author supplied thanks line - if available
+                                    if(isset($term_data['author_supplied_thanks_line']) && !empty($term_data['author_supplied_thanks_line'])) {
+                                        update_term_meta($term['term_id'], 'supplied_thanks_line', wp_kses($term_data['author_supplied_thanks_line'], 'post'));
+                                    }
+
                                     // Add image if available - field author_profile_image_url
                                     if(isset($term_data['author_profile_image']) && !empty($term_data['author_profile_image'])) {
                                         $attachment_rest_data = $this->rest_fetch($term_data['author_profile_image']['rest_url'], true);
